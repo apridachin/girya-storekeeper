@@ -1,0 +1,26 @@
+name: girya-storekeeper
+services:
+  - name: backend
+    dockerfile_path: backend/Dockerfile
+    source_dir: .
+    github:
+      branch: master
+      deploy_on_push: true
+    health_check:
+      http_path: /health
+    envs:
+      - key: PYTHONPATH
+        value: /app
+
+  - name: frontend
+    dockerfile_path: frontend/Dockerfile
+    source_dir: .
+    github:
+      branch: master
+      deploy_on_push: true
+    health_check:
+      http_path: /_stcore/health
+    envs:
+      - key: API_BASE_URL
+        scope: RUN_TIME
+        value: ${backend.PRIVATE_URL}/api/v1
