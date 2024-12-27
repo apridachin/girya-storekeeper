@@ -6,6 +6,7 @@ services:
     github:
       branch: master
       deploy_on_push: true
+      repo: apridachin/girya-storekeeper
     health_check:
       http_path: /health
     envs:
@@ -18,6 +19,7 @@ services:
     github:
       branch: master
       deploy_on_push: true
+      repo: apridachin/girya-storekeeper
     health_check:
       http_path: /_stcore/health
     envs:
