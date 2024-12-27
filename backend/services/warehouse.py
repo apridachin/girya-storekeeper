@@ -74,9 +74,11 @@ class WarehouseService:
             
         raw_product = products[0]
         product = Product(
+            serial_number=row.serial_number,
             id=raw_product.get("id"),
             name=raw_product.get("name"),
-            serial_number=row.serial_number,
+            things=raw_product.get("things"),
+            purchase_price=row.purchase_price
         )
         logger.debug("Product found", extra={"product_name": row.name, "product_id": product.id})
         return product
@@ -184,23 +186,21 @@ class WarehouseService:
                         }
                     },
                     "things": [product.serial_number],
-                } for product in products
-            ]
+                    "quantity": 1,
+                    "price": product.purchase_price * 100,
+                } for product in products if product.serial_number
+            ],
+            "applicable": False
         }
 
-        # response = await self._make_request(
-        #     method="POST",
-        #     endpoint=f"entity/demand",
-        #     json=payload
-        # )
-        response = {
-            "id": "1",
-            "url": "https://localhost/test"
-        }
+        response = await self._make_request(
+            method="POST",
+            endpoint=f"entity/demand",
+            json=payload
+        )
 
         result = Demand(
             id=response.get("id"),
-            url=response.get("url"),
             products=products
         )
 

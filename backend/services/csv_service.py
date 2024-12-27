@@ -40,17 +40,25 @@ class CSVService:
         with open(file_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if 'Serial Number' not in row or 'Product Name' not in row or 'Sales Price' not in row:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="CSV must contain 'serial_number', 'name', and 'sales_price' columns"
-                    )
+                if row.get('÷') == '' or row.get('Товар') == '' or row.get('Цена поставки') == '':
+                    continue
                 
                 item = CsvRow(
-                    serial_number=row['Serial Number'],
-                    name=row['Product Name'],
-                    sales_price=float(row['Sales Price']),
+                    serial_number=row['÷'],
+                    name=row['Товар'],
+                    purchase_price=self.parse_price(row['Цена поставки'])
                 )
-                items.append(item)
+                if item.purchase_price:
+                    items.append(item)
         
         return items
+
+    def parse_price(self, row: str | None) -> float:
+        if not row:
+            return 0.0
+        # Remove currency symbol and non-breaking spaces, then convert to float
+        cleaned = row.replace('р.', '').replace('\xa0', '').replace(',', '.')
+        try:
+            return float(cleaned)
+        except ValueError:
+            return 0.0

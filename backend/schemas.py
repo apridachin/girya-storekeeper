@@ -4,16 +4,17 @@ from pydantic import BaseModel, Field
 class CsvRow(BaseModel):
     serial_number: str = Field(..., description="Serial number of the item")
     name: str = Field(..., description="Name of the item")
-    sales_price: float | None = Field(None, description="Price of the item")
+    purchase_price: float | None = Field(None, description="Price of the item")
 
 class Product(BaseModel):
     id: str = Field(None, description="ID of the product")
     name: str = Field(..., description="Name of the product")
-    serial_number: str | None = Field(None, description="Serial number of the product")
+    things: list[str] | None = Field(None, description="Serial numbers in Warehouse")
+    serial_number: str | None = Field(None, description="Serial number in CSV")
+    purchase_price: float | None = Field(None, description="Puchase price of the item")
 
 class Demand(BaseModel):
     id: str = Field(..., description="ID of the created demand")
-    url: str = Field(..., description="URL of the created demand")
     products: list[Product] = Field(..., description="List of products in the created demand")
 
 class WarehouseStockRow(BaseModel):

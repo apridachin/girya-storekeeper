@@ -142,11 +142,12 @@ with tab1:
                 try:
                     result = run_async(create_demand(uploaded_file))
                     if result:
-                        st.success(f"✅ Demand created successfully! [See details]({result['url']})")
+                        st.success(f"✅ Demand created successfully!")
                         table_data = [
                             {
                                 "Name": product["name"],
                                 "Serial Number": product["serial_number"],
+                                "Price, RUB": product["purchase_price"]
                             } for product in result["products"]
                         ]
                         st.markdown(f"Products in demand")
