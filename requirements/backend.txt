@@ -2,7 +2,6 @@ beautifulsoup4==4.12.3
 fastapi==0.115.6
 httpx==0.23.0
 litellm==1.56.3
-openai==1.58.1
 pydantic==2.10.4
 pydantic-settings==2.7.0
 python-dotenv==1.0.1
