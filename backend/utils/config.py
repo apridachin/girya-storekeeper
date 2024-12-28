@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     warehouse_organization_id: str = Field("WAREHOUSE_ORGANIZATION_ID", description="Warehouse organization ID")
     warehouse_counterparty_id: str = Field("WAREHOUSE_COUNTERPARTY_ID", description="Warehouse counterparty ID")
     warehouse_store_id: str = Field("WAREHOUSE_STORE_ID", description="Warehouse store ID")
+    warehouse_main_store_id: str = Field("WAREHOUSE_MAIN_STORE_ID", description="Warehouse main store ID")
+    warehouse_android_group_id: str = Field("WAREHOUSE_ANDROID_GROUP_ID", description="Warehouse Android group ID")
 
     # Partners
     partners_api_url: str = Field("PARTNERS_API_URL", description="Partners API URL")

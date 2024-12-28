@@ -2,31 +2,38 @@ from pydantic import BaseModel, Field
 
 
 class CsvRow(BaseModel):
+    idx: int = Field(None, description="Row index in the CSV file")
     serial_number: str = Field(..., description="Serial number of the item")
-    name: str = Field(..., description="Name of the item")
-    purchase_price: float | None = Field(None, description="Price of the item")
+    product_name: str = Field(..., description="Name of the item")
+    purchase_price: int | None = Field(None, description="Price of the item in cents")
 
-class Product(BaseModel):
+# Warehouse schemas
+class WarehouseProduct(BaseModel):
     id: str = Field(None, description="ID of the product")
     name: str = Field(..., description="Name of the product")
-    things: list[str] | None = Field(None, description="Serial numbers in Warehouse")
-    serial_number: str | None = Field(None, description="Serial number in CSV")
-    purchase_price: float | None = Field(None, description="Puchase price of the item")
+    things: list[str] = Field(None, description="Serial numbers in Warehouse")
+    purchase_price: int = Field(None, description="Price of the product in cents")
 
-class Demand(BaseModel):
+class WarehouseDemand(BaseModel):
     id: str = Field(..., description="ID of the created demand")
-    products: list[Product] = Field(..., description="List of products in the created demand")
+    products: list[WarehouseProduct] = Field(..., description="List of products in the created demand")
 
-class WarehouseStockRow(BaseModel):
+class WarehouseStockItem(BaseModel):
     name: str = Field(..., description="Name of the product")
     stock: float = Field(None, description="Stock of the product")
     price: float = Field(None, description="Price of the product")
 
 class WarehouseStockSearchResult(BaseModel):
     size: int = Field(..., description="Size of the stock search result")
-    rows: list[WarehouseStockRow] = Field(..., description="List of products in the stock search result")
+    rows: list[WarehouseStockItem] = Field(..., description="List of products in the stock search result")
 
-class StockSearchRow(WarehouseStockRow):
+# StoreKeeper schemas
+class CreateDemandResult(BaseModel):
+    demand: WarehouseDemand
+    processed_products: list[CsvRow]
+    ignored_products: list[CsvRow]
+
+class StockSearchRow(WarehouseStockItem):
     url: str | None = Field(..., description="URL of the product")
 
 class StockSearchResult(BaseModel):

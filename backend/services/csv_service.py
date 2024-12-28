@@ -36,29 +36,46 @@ class CSVService:
                 detail="File not found"
             )
 
-        items = []
         with open(file_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            for row in reader:
-                if row.get('÷') == '' or row.get('Товар') == '' or row.get('Цена поставки') == '':
-                    continue
-                
-                item = CsvRow(
+            return [
+                CsvRow(
+                    idx=reader.line_num,
                     serial_number=row['÷'],
-                    name=row['Товар'],
-                    purchase_price=self.parse_price(row['Цена поставки'])
-                )
-                if item.purchase_price:
-                    items.append(item)
+                    product_name=row['Товар'],
+                    purchase_price=self.parse_price(row['Цена поставки']),
+                ) for row in reader
+            ]
         
-        return items
 
-    def parse_price(self, row: str | None) -> float:
-        if not row:
-            return 0.0
-        # Remove currency symbol and non-breaking spaces, then convert to float
-        cleaned = row.replace('р.', '').replace('\xa0', '').replace(',', '.')
+    def parse_price(self, row: str) -> int:
+        """Parse price string into float, handling various formats.
+    
+        Handles formats like:
+        - "7985,25"    -> 7985.25
+        - "7 985,25"   -> 7985.25
+        - "7.985,25"   -> 7985.25
+        - "р.7985,25"  -> 7985.25
+        - "7985.25"    -> 7985.25
+        """
         try:
-            return float(cleaned)
-        except ValueError:
-            return 0.0
+            # Remove currency symbol and any whitespace
+            cleaned = row.strip()
+            cleaned = cleaned.replace('р.', '').replace('\xa0', '')
+            
+            # Remove all spaces
+            cleaned = cleaned.replace(' ', '')
+            
+            # Handle both comma and dot as decimal separators
+            # If there's a comma, use it as decimal separator
+            if ',' in cleaned:
+                # Remove dots (thousand separators) and replace comma with dot
+                cleaned = cleaned.replace('.', '').replace(',', '.')
+            
+            # Convert to float
+            price_float = float(cleaned) if cleaned else 0.0
+            return int(price_float * 100)
+        
+        except (ValueError, TypeError):
+            return 0
+

@@ -1,26 +1,20 @@
 import asyncio
 import base64
-from typing import List, Dict, Any
+from typing import Dict, Any
 from urllib.parse import urljoin
 
 import httpx
 from fastapi import HTTPException
 
-from backend.schemas import CsvRow, Product, Demand, WarehouseStockRow, WarehouseStockSearchResult
+from backend.schemas import WarehouseProduct, WarehouseDemand, WarehouseStockItem, WarehouseStockSearchResult
 from backend.utils.config import get_settings
 from backend.utils.logger import logger
 
 
 class WarehouseService:
     def __init__(self, login: str, password: str):
-        logger.debug("Initializing WarehouseService")
         settings = get_settings()
-        
         self.base_url = settings.warehouse_api_url
-        self.organization_id = settings.warehouse_organization_id
-        self.counterparty_id = settings.warehouse_counterparty_id
-        self.store_id = settings.warehouse_store_id
-        
         self.auth_header = {
             "Authorization": f"Basic {base64.b64encode(f'{login}:{password}'.encode()).decode()}"
         }
@@ -56,48 +50,46 @@ class WarehouseService:
             )
             return response.json()
 
-    async def search_product(self, row: CsvRow) -> Product:
+    async def search_product(self, name: str) -> WarehouseProduct:
         """Search for a product in Warehouse by name"""
-        logger.info("Searching for product", extra={"product_name": row.name})
+        logger.debug("Searching for product", extra={"product_name": name})
         response = await self._make_request(
             method="GET",
-            endpoint=f"entity/product/?search={row.name}",
+            endpoint=f"entity/product/?search={name}",
         )
         
         products = response.get("rows", [])
         if not products:
-            logger.warning("Product not found", extra={"product_name": row.name})
+            logger.warning("Product not found", extra={"product_name": name})
             raise HTTPException(
                 status_code=404,
-                detail=f"Product not found: {row.name}"
+                detail=f"Product not found: {name}"
             )
             
         raw_product = products[0]
-        product = Product(
-            serial_number=row.serial_number,
+        product = WarehouseProduct(
             id=raw_product.get("id"),
             name=raw_product.get("name"),
             things=raw_product.get("things"),
-            purchase_price=row.purchase_price
         )
-        logger.debug("Product found", extra={"product_name": row.name, "product_id": product.id})
+        logger.debug("Product found", extra={"product_name": name, "product_id": product.id})
         return product
 
-    async def search_products(self, rows: List[CsvRow]) -> List[Product]:
+    async def search_products(self, names: list[str]) -> list[WarehouseProduct]:
         """Search for multiple products by name in parallel"""
-        if not rows:
+        if not names:
             logger.error("No product names provided")
             raise HTTPException(
                 status_code=400,
                 detail="No product names provided"
             )
 
-        logger.info("Searching for multiple products", extra={"product_count": len(rows)})
-        tasks = [self.search_product(row) for row in rows]
-        results: List[Product] = []
-        errors: List[str] = []
+        logger.debug("Searching for multiple products", extra={"product_count": len(names)})
+        tasks = [self.search_product(name) for name in names]
+        results: list[WarehouseProduct] = []
+        errors: list[str] = []
         
-        for row, task in zip(rows, asyncio.as_completed(tasks)):
+        for name, task in zip(names, asyncio.as_completed(tasks)):
             try:
                 product = await task
                 results.append(product)
@@ -105,27 +97,27 @@ class WarehouseService:
                 logger.warning(
                     "Product search failed",
                     extra={
-                        "product_name": row.name,
+                        "product_name": name,
                         "error": e.detail
                     }
                 )
-                errors.append(f"Product '{row.name}': {e.detail}")
+                errors.append(f"Product '{name}': {e.detail}")
             except Exception as e:
                 logger.error(
                     "Unexpected error searching for product",
                     extra={
-                        "product_name": row.name,
+                        "product_name": name,
                         "error": str(e)
                     }
                 )
-                errors.append(f"Product '{row.name}': Unexpected error - {str(e)}")
+                errors.append(f"Product '{name}': Unexpected error - {str(e)}")
         
         if errors:
             logger.warning(
                 "Some products were not found",
                 extra={
                     "found_products": len(results),
-                    "total_products": len(rows),
+                    "total_products": len(names),
                     "errors": errors
                 }
             )
@@ -135,7 +127,7 @@ class WarehouseService:
                     "message": "Some products were not found",
                     "errors": errors,
                     "found_products": len(results),
-                    "total_products": len(rows)
+                    "total_products": len(names)
                 }
             )
         
@@ -143,35 +135,38 @@ class WarehouseService:
             "All products found successfully",
             extra={
                 "found_products": len(results),
-                "total_products": len(rows)
+                "total_products": len(names)
             }
         )
         return results
 
-    async def create_demand(self, rows: List[CsvRow]) -> Demand:
+    async def create_demand(self, 
+        organization_id: str,
+        counterparty_id: str,
+        store_id: str,
+        products: list[WarehouseProduct]
+    ) -> WarehouseDemand:
         """Create a demand in Warehouse with the given items"""
-        logger.info("Creating demand", extra={"row_count": len(rows)})
-        products = await self.search_products(rows=rows)
-
-        logger.debug("Preparing demand payload")
+        logger.debug("Creating demand")
         payload = {
+            "applicable": False,  # Create demand as a draft
             "organization": {
                 "meta": {
-                "href": f"{self.base_url}entity/organization/{self.organization_id}",
+                "href": f"{self.base_url}entity/organization/{organization_id}",
                 "type": "organization",
                 "mediaType": "application/json"
                 }
             },
             "agent": {
                 "meta": {
-                "href": f"{self.base_url}entity/counterparty/{self.counterparty_id}",
+                "href": f"{self.base_url}entity/counterparty/{counterparty_id}",
                 "type": "counterparty",
                 "mediaType": "application/json"
                 }
             },
             "store": {
                 "meta": {
-                "href": f"{self.base_url}entity/store/{self.store_id}",
+                "href": f"{self.base_url}entity/store/{store_id}",
                 "type": "store",
                 "mediaType": "application/json"
                 }
@@ -185,12 +180,11 @@ class WarehouseService:
                             "mediaType": "application/json"
                         }
                     },
-                    "things": [product.serial_number],
+                    "things": product.things,
                     "quantity": 1,
-                    "price": product.purchase_price * 100,
-                } for product in products if product.serial_number
+                    "price": product.purchase_price,
+                } for product in products
             ],
-            "applicable": False
         }
 
         response = await self._make_request(
@@ -199,9 +193,9 @@ class WarehouseService:
             json=payload
         )
 
-        result = Demand(
+        result = WarehouseDemand(
             id=response.get("id"),
-            products=products
+            products=products,
         )
 
         logger.debug(
@@ -213,14 +207,13 @@ class WarehouseService:
         )
         return result
 
-    async def search_stock(self) -> WarehouseStockSearchResult:
+    async def search_stock(self, main_store_id: str, android_group_id: str) -> WarehouseStockSearchResult:
         """Search for stock in Warehouse"""
         logger.debug("Searching stock")
-        main_store_id = "b7b5d5e7-8181-11e5-7a40-e897002763f0"  
-        android_folder_id = "faffcd66-2494-11ed-0a80-068d00003572"
+    
         filter = (
             f"store={self.base_url}entity/store/{main_store_id};"
-            f"productFolder={self.base_url}entity/productfolder/{android_folder_id};"
+            f"productFolder={self.base_url}entity/productfolder/{android_group_id};"
         )
         
         logger.debug("Making stock search request", extra={"filter": filter})
@@ -233,7 +226,7 @@ class WarehouseService:
         result = WarehouseStockSearchResult(
             size=response.get("meta").get("size"),
             rows=[
-                WarehouseStockRow(
+                WarehouseStockItem(
                     name=row.get("name"),
                     stock=row.get("stock"),
                     price=row.get("price"),
