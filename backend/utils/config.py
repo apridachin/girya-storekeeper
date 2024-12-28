@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from streamlit.runtime.state.session_state import STREAMLIT_INTERNAL_KEY_PREFIX
 
 
 class Settings(BaseSettings):
@@ -22,7 +23,8 @@ class Settings(BaseSettings):
     partners_api_url: str = Field("PARTNERS_API_URL", description="Partners API URL")
 
     # LLMs
-    llm_api_url: str = Field("LLM_API_URL", description="LLM API URL")
+    llm_api_url: str = Field("LLM_API_URL", description="LLM Provider API URL")
+    llm_api_key: str = Field("LLM_API_KEY", description="LLM Provider API key")
 
     class Config:
         env_file = ".env"

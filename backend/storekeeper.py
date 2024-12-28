@@ -5,21 +5,21 @@ from backend.services.csv_service import CSVService, CsvRow
 from backend.services.partners import PartnersService
 from backend.services.warehouse import WarehouseService
 from backend.services.llm import LLMService
-from backend.utils.auth import login_header, password_header, api_key_header
+from backend.utils.auth import login_header, password_header
 from backend.utils.logger import logger
 from backend.utils.config import get_settings
 
 
 class StoreKeeper:
-    def __init__(self, login: str, password: str, api_key: str):
+    def __init__(self, login: str, password: str):
         """Initialize StoreKeeper with required services"""
         settings = get_settings()
 
         # Services
-        self.warehouse = WarehouseService(login=login, password=password)
+        self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, login=login, password=password)
         self.partners = PartnersService(base_url=settings.partners_api_url)
-        self.llm_service = LLMService(api_key=api_key)
-        self.csv_service = CSVService()
+        self.llm_service = LLMService(api_url=settings.llm_api_url, api_key=settings.llm_api_key)
+        self.csv_service = CSVService(upload_folder=settings.upload_folder)
 
         # Warehouse entities
         self.organization_id = settings.warehouse_organization_id
@@ -175,11 +175,9 @@ class StoreKeeper:
 def get_storekeeper(
     login: str = Depends(login_header),
     password: str = Depends(password_header),
-    api_key: str = Depends(api_key_header)
 ) -> StoreKeeper:
     """Dependency to get StoreKeeper instance"""
     return StoreKeeper(
         login=login,
         password=password,
-        api_key=api_key,
     )

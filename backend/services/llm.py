@@ -5,7 +5,6 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from backend.utils.logger import logger
-from backend.utils.config import get_settings
 
 
 class CompletionRequest(BaseModel):
@@ -16,10 +15,10 @@ class CompletionRequest(BaseModel):
 
 
 class LLMService:
-    def __init__(self, api_key: str):
-        logger.debug("Initializing LLMService")
-        settings = get_settings()
-        self.base_url = settings.llm_api_url
+    def __init__(self, api_url: str, api_key: str):
+        self.base_url = api_url
+        self.api_key = api_key
+        
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -59,7 +58,7 @@ class LLMService:
 
 
     async def parse_html(self, instructions: str, html: str) -> List[Dict[str, str]]:
-        logger.info(
+        logger.debug(
             "Parsing HTML with instructions",
             extra={
                 "instruction_length": len(instructions),
@@ -83,7 +82,7 @@ class LLMService:
 
         try:
             result = await self.create_completion(messages=[system_message, user_message])
-            logger.info(
+            logger.debug(
                 "HTML parsing completed",
                 extra={
                     "result_length": len(result),

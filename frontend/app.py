@@ -16,11 +16,10 @@ if "credentials" not in st.session_state:
     st.session_state.credentials = {
         "login": "",
         "password": "",
-        "api_key": ""
     }
 
 def get_auth_headers(credentials):
-    if not all(key in credentials for key in ["login", "password", "api_key"]):
+    if not all(key in credentials for key in ["login", "password"]):
         return None
         
     if not all(credentials.values()):
@@ -29,7 +28,6 @@ def get_auth_headers(credentials):
     return {
         "X-Warehouse-Login": credentials["login"],
         "X-Warehouse-Password": credentials["password"],
-        "X-LLM-Api-Key": credentials["api_key"]
     }
 
 def run_async(coroutine):
@@ -92,19 +90,10 @@ with st.sidebar:
             type="password"
         )
         
-        # OpenAI API key
-        st.markdown("#### OpenAI")
-        api_key = st.text_input(
-            "API Key",
-            value=st.session_state.credentials["api_key"],
-            type="password"
-        )
-        
         if st.form_submit_button("Save Credentials"):
             st.session_state.credentials.update({
                 "login": login,
                 "password": password,
-                "api_key": api_key
             })
             st.success("✅ Credentials saved!")
     

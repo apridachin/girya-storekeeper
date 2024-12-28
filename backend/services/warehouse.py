@@ -7,14 +7,12 @@ import httpx
 from fastapi import HTTPException
 
 from backend.schemas import WarehouseProduct, WarehouseDemand, WarehouseStockItem, WarehouseStockSearchResult
-from backend.utils.config import get_settings
 from backend.utils.logger import logger
 
 
 class WarehouseService:
-    def __init__(self, login: str, password: str):
-        settings = get_settings()
-        self.base_url = settings.warehouse_api_url
+    def __init__(self, login: str, password: str, api_url: str):
+        self.base_url = api_url
         self.auth_header = {
             "Authorization": f"Basic {base64.b64encode(f'{login}:{password}'.encode()).decode()}"
         }

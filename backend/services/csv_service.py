@@ -6,12 +6,11 @@ import os
 from fastapi import UploadFile, HTTPException
 
 from backend.schemas import CsvRow
-from backend.utils.config import get_settings
 
 
 class CSVService:
-    def __init__(self):
-        self.upload_folder = Path(get_settings().upload_folder)
+    def __init__(self, upload_folder: str):
+        self.upload_folder = Path(upload_folder)
         self.upload_folder.mkdir(exist_ok=True)
 
     async def save_upload_file(self, file: UploadFile) -> str:
