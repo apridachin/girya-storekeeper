@@ -1,6 +1,7 @@
 from typing import List, Dict
 
 from litellm import acompletion
+from fastapi import HTTPException
 
 from backend.utils.logger import logger
 
