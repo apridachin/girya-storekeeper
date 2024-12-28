@@ -30,8 +30,8 @@ class WarehouseStockSearchResult(BaseModel):
 # StoreKeeper schemas
 class CreateDemandResult(BaseModel):
     demand: WarehouseDemand
-    processed_products: list[CsvRow]
-    ignored_products: list[CsvRow]
+    processed_rows: list[CsvRow]
+    ignored_rows: list[CsvRow]
 
 class StockSearchRow(WarehouseStockItem):
     url: str | None = Field(..., description="URL of the product")

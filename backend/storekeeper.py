@@ -1,6 +1,6 @@
 from fastapi import UploadFile, HTTPException, Depends
 
-from backend.schemas import CreateDemandResult, WarehouseDemand, StockSearchResult, StockSearchRow, WarehouseProduct
+from backend.schemas import CreateDemandResult, StockSearchResult, StockSearchRow, WarehouseProduct
 from backend.services.csv_service import CSVService, CsvRow
 from backend.services.partners import PartnersService
 from backend.services.warehouse import WarehouseService
@@ -11,7 +11,7 @@ from backend.utils.config import get_settings
 
 
 class StoreKeeper:
-    def __init__(self, login: str, password: str, api_key: str) -> WarehouseDemand:
+    def __init__(self, login: str, password: str, api_key: str):
         """Initialize StoreKeeper with required services"""
         settings = get_settings()
 
@@ -45,23 +45,23 @@ class StoreKeeper:
         
         logger.info("Searching for products in Warehouse", extra={"product_count": len(valid_rows)})
         warehouse_products = await self.warehouse.search_products([row.product_name for row in valid_rows])
-        adjusted_products, unmatched_rows = self.adjust_products(valid_rows, warehouse_products)
+        prepared_products, unmatched_rows = self.prepare_products(valid_rows, warehouse_products)
 
-        logger.info("Creating demand in Warehouse", extra={"product_count": len(adjusted_products)})
+        logger.info("Creating demand in Warehouse", extra={"product_count": len(prepared_products)})
         result = await self.warehouse.create_demand(
             organization_id=self.organization_id,
             counterparty_id=self.counterparty_id,
             store_id=self.store_id,
-            products=adjusted_products
+            products=prepared_products
         )
         logger.info("Demand created successfully", extra={"demand_id": result.id})
         return CreateDemandResult(
             demand=result,
-            processed_products=valid_rows,
-            ignored_products=invalid_rows + unmatched_rows,
+            processed_rows=valid_rows,
+            ignored_rows=invalid_rows + unmatched_rows,
         )
 
-    def adjust_products(
+    def prepare_products(
         self,
         rows: list[CsvRow],
         products: list[WarehouseProduct]
@@ -72,7 +72,7 @@ class StoreKeeper:
         1. Find matching product where row.serial_number is in product.things
         2. Create new product with matched product ID and row data
         """
-        adjusted_products = []
+        prepared_products = []
         unmatched_rows = []
         for row in rows:
             # Find product where serial number matches one in things list
@@ -91,17 +91,17 @@ class StoreKeeper:
                 things=[row.serial_number],
                 purchase_price=row.purchase_price
             )
-            adjusted_products.append(adjusted_product)
+            prepared_products.append(adjusted_product)
             
         logger.info(
             "Products adjusted",
             extra={
                 "input_rows": len(rows),
-                "matched_products": len(adjusted_products),
-                "unmatched_rows": len(rows) - len(adjusted_products),
+                "matched_products": len(prepared_products),
+                "unmatched_rows": len(rows) - len(prepared_products),
             }
         )
-        return adjusted_products, unmatched_rows
+        return prepared_products, unmatched_rows
 
     def filter_rows(self, rows: list[CsvRow]) -> tuple[list[CsvRow], list[CsvRow]]:
         valid_rows = []

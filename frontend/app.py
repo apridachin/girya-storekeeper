@@ -150,8 +150,18 @@ with tab1:
                                 "Price, RUB": product["purchase_price"]
                             } for product in result["products"]
                         ]
-                        st.markdown(f"Products in demand")
                         st.table(table_data)
+
+                        if result["ignored_rows"]:
+                            st.warning(f"Unprocessed rows")
+                            table_data = [
+                                {
+                                    "Serial Number": row["serial_number"],
+                                    "Product Name": row["product_name"],
+                                    "Sales Price": row["purchase_price"]
+                                } for row in result["ignored_rows"]
+                            ]
+                            st.table(table_data)
                 except httpx.HTTPStatusError as e:
                     st.error(f"Error creating demand: {e.response.text}")
                 except Exception as e:
