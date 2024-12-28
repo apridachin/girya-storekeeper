@@ -1,7 +1,6 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from streamlit.runtime.state.session_state import STREAMLIT_INTERNAL_KEY_PREFIX
 
 
 class Settings(BaseSettings):
