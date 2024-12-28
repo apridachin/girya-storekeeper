@@ -10,10 +10,7 @@ def create_sidebar():
     st.title("🏪 Girya Storekeeper")
     
     with st.form("credentials_form"):
-        st.subheader("🔑 Credentials")
-        
-        # Warehouse credentials
-        st.markdown("#### Warehouse")
+        st.subheader("🔑 Warehouse Credentials")
         login = st.text_input(
             "Login",
             value=st.session_state.credentials["login"],

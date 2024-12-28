@@ -11,10 +11,11 @@ from backend.utils.logger import logger
 
 
 class WarehouseService:
-    def __init__(self, login: str, password: str, api_url: str):
+    def __init__(self, api_url: str, access_token: str):
         self.base_url = api_url
+        self.access_token = access_token
         self.auth_header = {
-            "Authorization": f"Basic {base64.b64encode(f'{login}:{password}'.encode()).decode()}"
+            "Authorization": f"Bearer {access_token}"
         }
 
     async def _make_request(self, method: str, endpoint: str, params: Dict[Any, Any] = None, json: Dict[Any, Any] = None) -> Dict[Any, Any]:

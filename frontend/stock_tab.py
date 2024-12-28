@@ -9,7 +9,7 @@ def create_stock_tab():
     if st.button("🔄 Refresh Stock Data"):
         with st.spinner("Fetching stock data..."):
             stock_data = run_async(get_stock(credentials=st.session_state.credentials))
-            if stock_data:
+            if stock_data and "rows" in stock_data:
                 if stock_data["size"] > 0:
                     table_data = [
                         {
@@ -33,3 +33,5 @@ def create_stock_tab():
                     )
                 else:
                     st.info("No stock data available")
+            else:
+                st.error("Failed to fetch stock data")

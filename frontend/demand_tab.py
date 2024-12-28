@@ -25,14 +25,14 @@ def create_demand_tab():
             with st.spinner("Creating demand..."):
                 try:
                     result = run_async(create_demand(credentials=st.session_state.credentials, file=uploaded_file))
-                    if result:
+                    if result and "demand" in result:
                         st.success(f"✅ Demand created successfully!")
                         table_data = [
                             {
                                 "Name": product["name"],
                                 "Serial Number": product["serial_number"],
                                 "Price, RUB": product["purchase_price"]
-                            } for product in result["products"]
+                            } for product in result["demand"]["products"]
                         ]
                         st.table(table_data)
 
