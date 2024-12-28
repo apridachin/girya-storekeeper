@@ -18,7 +18,7 @@ class StoreKeeper:
         # Services
         self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, login=login, password=password)
         self.partners = PartnersService(base_url=settings.partners_api_url)
-        self.llm_service = LLMService(api_url=settings.llm_api_url, api_key=settings.llm_api_key)
+        self.llm_service = LLMService(api_key=settings.llm_api_key, model=settings.llm_name)
         self.csv_service = CSVService(upload_folder=settings.upload_folder)
 
         # Warehouse entities

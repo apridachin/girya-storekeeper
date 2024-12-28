@@ -164,12 +164,11 @@ with tab2:
             stock_data = run_async(get_stock())
             if stock_data:
                 if stock_data["size"] > 0:
-                    # Format data for table display
                     table_data = [
                         {
                             "Product": row["name"],
                             "In Stock": f"{row['stock']:.0f}" if row.get("stock") else "—",
-                            "Price": f"{row['price']} RUB" if row.get("price") else "—",
+                            "Price": f"{row['price'] / 100} RUB" if row.get("price") else "—",
                             "Partner Link": row["url"] if row.get("url") else "Not Found",
                         } for row in stock_data["rows"]
                     ]
