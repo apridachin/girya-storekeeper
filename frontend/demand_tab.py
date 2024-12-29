@@ -29,10 +29,10 @@ def create_demand_tab():
                         st.success(f"✅ Demand created successfully!")
                         table_data = [
                             {
-                                "Name": product["name"],
                                 "Serial Number": product["serial_number"],
-                                "Price, RUB": product["purchase_price"]
-                            } for product in result["demand"]["products"]
+                                "Product Name": product["product_name"],
+                                "Purchase Price": product["purchase_price"]
+                            } for product in result["processed_rows"]
                         ]
                         st.table(table_data)
 
@@ -42,7 +42,7 @@ def create_demand_tab():
                                 {
                                     "Serial Number": row["serial_number"],
                                     "Product Name": row["product_name"],
-                                    "Sales Price": row["purchase_price"]
+                                    "Purchase Price": row["purchase_price"]
                                 } for row in result["ignored_rows"]
                             ]
                             st.table(table_data)

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from typing import Optional, Dict
 
 import httpx
@@ -40,7 +41,8 @@ async def create_demand(credentials: Dict[str, str], file) -> Optional[Dict]:
         response = await client.post(
             f"{API_BASE_URL}/demand",
             files=files,
-            headers=headers
+            headers=headers,
+            timeout=600,
         )
         response.raise_for_status()
         return response.json()

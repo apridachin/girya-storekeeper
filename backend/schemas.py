@@ -14,6 +14,10 @@ class WarehouseProduct(BaseModel):
     things: list[str] = Field(None, description="Serial numbers in Warehouse")
     purchase_price: int = Field(None, description="Price of the product in cents")
 
+class WarehouseSearchProducts(BaseModel):
+    products: list[WarehouseProduct] = Field(..., description="List of found products")
+    not_found: list[str] = Field(..., description="List of not found products")
+
 class WarehouseDemand(BaseModel):
     id: str = Field(..., description="ID of the created demand")
     products: list[WarehouseProduct] = Field(..., description="List of products in the created demand")

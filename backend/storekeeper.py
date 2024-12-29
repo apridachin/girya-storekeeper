@@ -44,9 +44,9 @@ class StoreKeeper:
             )
         
         logger.info("Searching for products in Warehouse", extra={"product_count": len(valid_rows)})
-        warehouse_products, not_found = await self.warehouse.search_products([row.product_name for row in valid_rows])
-        not_found_rows = [row for row in valid_rows if row.product_name in not_found]
-        prepared_products, unmatched_rows = self.prepare_products(valid_rows, warehouse_products)
+        warehouse_products = await self.warehouse.search_products([row.product_name for row in valid_rows])
+        not_found_rows = [row for row in valid_rows if row.product_name in warehouse_products.not_found]
+        prepared_products, unmatched_rows = self.prepare_products(valid_rows, warehouse_products.products)
 
         logger.info("Creating demand in Warehouse", extra={"product_count": len(prepared_products)})
         result = await self.warehouse.create_demand(
