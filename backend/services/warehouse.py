@@ -1,6 +1,7 @@
 import asyncio
 import base64
-from typing import Dict, Any
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
 from urllib.parse import urljoin
 
 import httpx
@@ -10,6 +11,40 @@ from backend.schemas import WarehouseProduct, WarehouseDemand, WarehouseStockIte
 from backend.utils.logger import logger
 
 
+class RateLimiter:
+    def __init__(self):
+        self.remaining_requests: int = 0
+        self.limit: int = 0
+        self.time_interval: int = 0
+        self.reset_time: Optional[datetime] = None
+        self.lock = asyncio.Lock()
+
+    def update_limits(self, headers: Dict[str, str]) -> None:
+        """Update rate limits from response headers"""
+        self.remaining_requests = int(headers.get('X-RateLimit-Remaining', 0))
+        self.limit = int(headers.get('X-RateLimit-Limit', 0))
+        self.time_interval = int(headers.get('X-Lognex-Retry-TimeInterval', 0))
+        
+        retry_after = int(headers.get('X-Lognex-Retry-After', 0))
+        if retry_after > 0:
+            self.reset_time = datetime.now() + timedelta(milliseconds=retry_after)
+
+    async def acquire(self) -> None:
+        """Wait if necessary before making a request"""
+        async with self.lock:
+            if self.reset_time and datetime.now() < self.reset_time:
+                wait_time = (self.reset_time - datetime.now()).total_seconds()
+                logger.info(f"Rate limit reached, waiting for {wait_time:.2f} seconds")
+                await asyncio.sleep(wait_time)
+                self.reset_time = None
+                self.remaining_requests = self.limit
+
+            if self.remaining_requests == 0 and self.time_interval > 0:
+                wait_time = self.time_interval / 1000
+                logger.info(f"No remaining requests, waiting for {wait_time:.2f} seconds")
+                await asyncio.sleep(wait_time)
+
+
 class WarehouseService:
     def __init__(self, api_url: str, access_token: str):
         self.base_url = api_url
@@ -17,36 +52,34 @@ class WarehouseService:
         self.auth_header = {
             "Authorization": f"Bearer {access_token}"
         }
+        self.rate_limiter = RateLimiter()
 
     async def _make_request(self, method: str, endpoint: str, params: Dict[Any, Any] = None, json: Dict[Any, Any] = None) -> Dict[Any, Any]:
-        """Make HTTP request to Warehouse API"""
+        """Make a rate-limited request to the Warehouse API"""
+        await self.rate_limiter.acquire()
+        
+        url = urljoin(self.base_url, endpoint)
         async with httpx.AsyncClient() as client:
             response = await client.request(
                 method=method,
-                url=urljoin(self.base_url, endpoint),
-                headers=self.auth_header,
+                url=url,
                 params=params,
                 json=json,
-                timeout=30.0
+                headers=self.auth_header,
             )
             
-            if response.status_code >= 400:
-                logger.error(
-                    "Warehouse API error",
-                    extra={
-                        "status_code": response.status_code,
-                        "response": response.text
-                    }
-                )
-                raise Exception(f"Warehouse API error: {response.text}")
+            self.rate_limiter.update_limits(response.headers)
             
-            logger.debug(
-                "Warehouse API request successful",
-                extra={
-                    "status_code": response.status_code,
-                    "endpoint": endpoint
-                }
-            )
+            if response.status_code == 429:
+                logger.warning("Rate limit exceeded", extra={"headers": dict(response.headers)})
+                if response.json()['errors'][0]['code'] == 1073:
+                    self.rate_limiter.remaining_requests = 0
+                    self.rate_limiter.time_interval = 10_000
+                
+                await self.rate_limiter.acquire()
+                return await self._make_request(method, endpoint, params, json)
+            
+            response.raise_for_status()
             return response.json()
 
     async def search_product(self, name: str) -> WarehouseProduct:
@@ -74,70 +107,34 @@ class WarehouseService:
         logger.debug("Product found", extra={"product_name": name, "product_id": product.id})
         return product
 
-    async def search_products(self, names: list[str]) -> list[WarehouseProduct]:
-        """Search for multiple products by name in parallel"""
-        if not names:
-            logger.error("No product names provided")
-            raise HTTPException(
-                status_code=400,
-                detail="No product names provided"
-            )
-
+    async def search_products(self, names: list[str]) -> tuple[list[WarehouseProduct], list[str]]:
+        """Search for multiple products in Warehouse by name"""
         logger.debug("Searching for multiple products", extra={"product_count": len(names)})
-        tasks = [self.search_product(name) for name in names]
+        
+        batch_size = 3
         results: list[WarehouseProduct] = []
-        errors: list[str] = []
+        not_found: list[str] = []
         
-        for name, task in zip(names, asyncio.as_completed(tasks)):
-            try:
-                product = await task
-                results.append(product)
-            except HTTPException as e:
-                logger.warning(
-                    "Product search failed",
-                    extra={
-                        "product_name": name,
-                        "error": e.detail
-                    }
-                )
-                errors.append(f"Product '{name}': {e.detail}")
-            except Exception as e:
-                logger.error(
-                    "Unexpected error searching for product",
-                    extra={
-                        "product_name": name,
-                        "error": str(e)
-                    }
-                )
-                errors.append(f"Product '{name}': Unexpected error - {str(e)}")
+        for i in range(0, len(names), batch_size):
+            batch = names[i:i + batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1}, products {i+1}-{min(i+batch_size, len(names))}")
+            
+            tasks = [self.search_product(name) for name in batch]
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for name, result in zip(batch, batch_results):
+                if isinstance(result, Exception):
+                    error_msg = f"Product '{name}': {str(result)}"
+                    logger.error(error_msg)
+                    not_found.append(name)
+                else:
+                    results.append(result)
+            
+            # Let rate limiter handle the timing between batches
+            if i + batch_size < len(names):
+                await self.rate_limiter.acquire()
         
-        if errors:
-            logger.warning(
-                "Some products were not found",
-                extra={
-                    "found_products": len(results),
-                    "total_products": len(names),
-                    "errors": errors
-                }
-            )
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "message": "Some products were not found",
-                    "errors": errors,
-                    "found_products": len(results),
-                    "total_products": len(names)
-                }
-            )
-        
-        logger.info(
-            "All products found successfully",
-            extra={
-                "found_products": len(results),
-                "total_products": len(names)
-            }
-        )
-        return results
+        return results, not_found
 
     async def create_demand(self, 
         organization_id: str,

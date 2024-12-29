@@ -44,7 +44,8 @@ class StoreKeeper:
             )
         
         logger.info("Searching for products in Warehouse", extra={"product_count": len(valid_rows)})
-        warehouse_products = await self.warehouse.search_products([row.product_name for row in valid_rows])
+        warehouse_products, not_found = await self.warehouse.search_products([row.product_name for row in valid_rows])
+        not_found_rows = [row for row in valid_rows if row.product_name in not_found]
         prepared_products, unmatched_rows = self.prepare_products(valid_rows, warehouse_products)
 
         logger.info("Creating demand in Warehouse", extra={"product_count": len(prepared_products)})
@@ -58,7 +59,7 @@ class StoreKeeper:
         return CreateDemandResult(
             demand=result,
             processed_rows=valid_rows,
-            ignored_rows=invalid_rows + unmatched_rows,
+            ignored_rows=invalid_rows + not_found_rows + unmatched_rows,
         )
 
     def prepare_products(
@@ -115,7 +116,7 @@ class StoreKeeper:
         return valid_rows, invalid_rows
 
     def is_valid_row(self, row: CsvRow) -> bool:
-        if row.serial_number == '' or row.product_name == '' or row.purchase_price == '':
+        if not row.serial_number or not row.product_name or not row.purchase_price:
             return False
         return True
             

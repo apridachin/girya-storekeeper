@@ -47,7 +47,7 @@ class CSVService:
             ]
         
 
-    def parse_price(self, row: str) -> int:
+    def parse_price(self, row: str) -> int | None:
         """Parse price string into float, handling various formats.
     
         Handles formats like:
@@ -72,9 +72,9 @@ class CSVService:
                 cleaned = cleaned.replace('.', '').replace(',', '.')
             
             # Convert to float
-            price_float = float(cleaned) if cleaned else 0.0
+            price_float = float(cleaned)
             return int(price_float * 100)
         
         except (ValueError, TypeError):
-            return 0
+            return None
 
