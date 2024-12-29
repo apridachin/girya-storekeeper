@@ -47,7 +47,7 @@ async def create_demand(credentials: Dict[str, str], file) -> Optional[Dict]:
         response.raise_for_status()
         return response.json()
 
-async def get_stock(credentials: Dict[str, str]) -> Optional[Dict]:
+async def get_partners_stock(credentials: Dict[str, str]) -> Optional[Dict]:
     """Get current stock information"""
     headers = get_auth_headers(credentials)
     if not headers:
@@ -56,7 +56,23 @@ async def get_stock(credentials: Dict[str, str]) -> Optional[Dict]:
         
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/stock",
+            f"{API_BASE_URL}/stock/partners",
+            headers=headers,
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json()
+
+async def get_competitors_stock(credentials: Dict[str, str]) -> Optional[Dict]:
+    """Get current stock information"""
+    headers = get_auth_headers(credentials)
+    if not headers:
+        st.error("Please provide login and password in the sidebar")
+        return None
+        
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{API_BASE_URL}/stock/competitors",
             headers=headers,
             timeout=120,
         )

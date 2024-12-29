@@ -41,7 +41,17 @@ class CreateDemandResult(BaseModel):
 
 class StockSearchRow(WarehouseStockItem):
     url: str | None = Field(..., description="URL of the product")
+    price: str | None = Field(..., description="Price of the product")
 
 class StockSearchResult(BaseModel):
     size: int
     rows: list[StockSearchRow]
+
+class PartnersResponse(BaseModel):
+    product_name: str = Field(..., description="Name of the product")
+    url: str | None = Field(..., description="URL of the product")
+
+class CompetitorsResponse(BaseModel):
+    product_name: str = Field(..., description="Name of the product")
+    price: float | None = Field(..., description="Price of the product")
+    url: str | None = Field(..., description="URL of the product")

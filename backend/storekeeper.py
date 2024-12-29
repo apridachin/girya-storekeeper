@@ -1,7 +1,8 @@
 from fastapi import UploadFile, HTTPException, Depends
 
-from backend.schemas import CreateDemandResult, StockSearchResult, StockSearchRow, WarehouseProduct
+from backend.schemas import CreateDemandResult, PartnersResponse, StockSearchResult, StockSearchRow, WarehouseProduct, CompetitorsResponse
 from backend.services.csv_service import CSVService, CsvRow
+from backend.services.competitors import CompetitorsService
 from backend.services.partners import PartnersService
 from backend.services.warehouse import WarehouseService
 from backend.services.llm import LLMService
@@ -17,6 +18,7 @@ class StoreKeeper:
 
         # Services
         self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, access_token=access_token)
+        self.competitors = CompetitorsService()
         self.partners = PartnersService(base_url=settings.partners_api_url)
         self.llm_service = LLMService(api_key=settings.llm_api_key, model=settings.llm_name)
         self.csv_service = CSVService(upload_folder=settings.upload_folder)
@@ -120,12 +122,12 @@ class StoreKeeper:
             return False
         return True
             
-    async def search_stock(self) -> StockSearchResult:
+    async def search_partners_stock(self) -> StockSearchResult:
         """Search for stock in Warehouse and get prices from Partners site"""
         logger.info("Starting stock search")
         stock = await self.warehouse.search_stock(
-            main_store_id=self.main_store_id,
-            android_group_id=self.android_group_id
+            store_id=self.main_store_id,
+            product_group_id=self.android_group_id
         )
         result = []
 
@@ -133,15 +135,56 @@ class StoreKeeper:
         for item in stock.rows:
             logger.debug("Searching for product", extra={"product_name": item.name})
             html = await self.partners.search(item.name)
+            instructions = (
+                f"Find the product on the page. Product name: {item.name}. "
+                "If the product is found the product info in expected format. "
+            )
+            found_product: PartnersResponse = await self.llm_service.parse_html(
+                instructions=instructions,
+                html=html,
+                response_format=PartnersResponse,
+            )
+            logger.info(
+                "Product search completed",
+                extra={
+                    "product_name": item.name,
+                    "found": found_product != "NOT FOUND"
+                }
+            )
+            result.append(
+                StockSearchRow(
+                    name=item.name,
+                    stock=item.stock,
+                    price=str(item.price),
+                    url=found_product.url,
+                )
+            )
+         
+        logger.info("Stock search completed", extra={"processed_items": len(result)})
+        return StockSearchResult(size=len(result), rows=result)
+         
+    async def search_competitors_stock(self) -> StockSearchResult:
+        """Search for stock in Warehouse and get prices from Partners site"""
+        logger.info("Starting stock search")
+        stock = await self.warehouse.search_stock(
+            store_id=self.main_store_id, # TODO: change store? 
+            product_group_id=self.android_group_id # TODO: change group
+        )
+        result = []
+
+        logger.info("Processing stock items", extra={"total_items": len(stock.rows), "processing_items": min(3, len(stock.rows))})
+        for item in stock.rows[:3]:
+            logger.debug("Searching for product", extra={"product_name": item.name})
+            html = await self.competitors.search(item.name)
             if html: 
                 instructions = (
-                    f"Find the product on the page. Product: {item.name}. "
-                    "If the product is found return a ONLY a URL to it. "
-                    "If the product wa not found return NOT FOUND."
+                    f"Find the product on the page. Product name: {item.name}. "
+                    "If the product is found the product info in expected format. "
                 )
-                found_product = await self.llm_service.parse_html(
+                found_product: CompetitorsResponse = await self.llm_service.parse_html(
                     instructions=instructions,
                     html=html,
+                    response_format=CompetitorsResponse,
                 )
                 logger.info(
                     "Product search completed",
@@ -154,8 +197,8 @@ class StoreKeeper:
                     StockSearchRow(
                         name=item.name,
                         stock=item.stock,
-                        price=item.price,
-                        url=found_product,
+                        price=found_product.price,
+                        url=found_product.url,
                     )
                 )
             else:

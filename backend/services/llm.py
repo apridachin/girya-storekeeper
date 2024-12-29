@@ -1,7 +1,9 @@
+import json
 from typing import List, Dict
 
 from litellm import acompletion
 from fastapi import HTTPException
+from openai import BaseModel
 
 from backend.utils.logger import logger
 
@@ -11,7 +13,12 @@ class LLMService:
         self.api_key = api_key
         self.model = model
         
-    async def create_completion(self, messages: List[Dict[str, str]], **kwargs) -> str:
+    async def create_completion(
+        self,
+        messages: List[Dict[str, str]],
+        response_format: BaseModel = None,
+        **kwargs
+    ) -> str | BaseModel:
         """Create a completion using LLM API"""
         if not messages:
             logger.error("No messages provided for completion")
@@ -20,10 +27,13 @@ class LLMService:
         response = await acompletion(
             api_key=self.api_key,
             model=self.model,
-             messages=messages
+            messages=messages,
+            response_format=response_format,
         )
         result = response.choices[0].message.content
-        
+        if response_format:
+            result = response_format.model_validate(json.loads(result))
+
         logger.debug(
             "Completion created",
             extra={
@@ -35,7 +45,7 @@ class LLMService:
         return result
 
 
-    async def parse_html(self, instructions: str, html: str) -> List[Dict[str, str]]:
+    async def parse_html(self, instructions: str, html: str, response_format: BaseModel = None) -> str | BaseModel:
         logger.debug(
             "Parsing HTML on the base of instructions",
             extra={
@@ -46,7 +56,7 @@ class LLMService:
         
         system_message = {
             "role": "system",
-            "content": "You are a web scrapper. You are a webscrapper. Answer questions about the the page."
+            "content": "You are a web scrapper. Answer questions about the the page."
         }
         
         user_message = {
@@ -59,7 +69,7 @@ class LLMService:
         }
 
         try:
-            result = await self.create_completion(messages=[system_message, user_message])
+            result = await self.create_completion(messages=[system_message, user_message], response_format=response_format)
             return result
         except Exception as e:
             logger.error(

@@ -158,13 +158,13 @@ class WarehouseService:
         )
         return result
 
-    async def search_stock(self, main_store_id: str, android_group_id: str) -> WarehouseStockSearchResult:
+    async def search_stock(self, store_id: str, product_group_id: str) -> WarehouseStockSearchResult:
         """Search for stock in Warehouse"""
         logger.debug("Searching stock")
     
         filter = (
-            f"store={self.base_url}entity/store/{main_store_id};"
-            f"productFolder={self.base_url}entity/productfolder/{android_group_id};"
+            f"store={self.base_url}entity/store/{store_id};"
+            f"productFolder={self.base_url}entity/productfolder/{product_group_id};"
         )
         
         logger.debug("Making stock search request", extra={"filter": filter})
