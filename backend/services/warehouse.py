@@ -41,30 +41,31 @@ class WarehouseService:
             response.raise_for_status()
             return response.json()
 
-    async def search_product(self, name: str) -> WarehouseProduct:
+    async def search_product(self, name: str) -> list[WarehouseProduct]:
         """Search for a product in Warehouse by name"""
-        logger.debug("Searching for product", extra={"product_name": name})
         response = await self._make_request(
             method="GET",
             endpoint=f"entity/product/?search={name}",
         )
         
-        products = response.get("rows", [])
-        if not products:
+        rows = response.get("rows", [])
+        if not rows:
             logger.warning("Product not found", extra={"product_name": name})
             raise HTTPException(
                 status_code=404,
                 detail=f"Product not found: {name}"
             )
-            
-        raw_product = products[0]
-        product = WarehouseProduct(
-            id=raw_product.get("id"),
-            name=raw_product.get("name"),
-            things=raw_product.get("things", []),
-        )
-        logger.debug("Product found", extra={"product_name": name, "product_id": product.id})
-        return product
+        
+        products = [
+            WarehouseProduct(
+                id=row.get("id"),
+                name=row.get("name"),
+                things=row.get("things", []),
+            ) for row in rows
+        ]
+        
+        logger.debug("Product found", extra={"product_name": name, "product_ids": [p.id for p in products]})
+        return products
 
     async def search_products(self, names: list[str]) -> WarehouseSearchProducts:
         """Search for multiple products in Warehouse by name"""
@@ -73,11 +74,11 @@ class WarehouseService:
         products: list[WarehouseProduct] = []
         not_found: list[str] = []
             
-        # barch processing doesn't work because of aggresive rate limits
+        # batch processing doesn't work because of aggresive rate limits
         for name in names:
             try: 
                 result = await self.search_product(name)
-                products.append(result)
+                products.extend(result)
             except Exception as e:
                 logger.warning(
                     "Error searching for product",

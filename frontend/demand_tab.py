@@ -31,19 +31,41 @@ def create_demand_tab():
                             {
                                 "Serial Number": product["serial_number"],
                                 "Product Name": product["product_name"],
-                                "Purchase Price": product["purchase_price"]
-                            } for product in result["processed_rows"]
+                                "Purchase Price": product["purchase_price"] / 100
+                            } for product in result["processed_rows"] 
                         ]
                         st.table(table_data)
 
-                        if result["ignored_rows"]:
-                            st.warning(f"Unprocessed rows")
+                        if result["not_found_rows"]:
+                            st.warning(f"Products not found in Warehouse")
                             table_data = [
                                 {
                                     "Serial Number": row["serial_number"],
                                     "Product Name": row["product_name"],
-                                    "Purchase Price": row["purchase_price"]
-                                } for row in result["ignored_rows"]
+                                    "Purchase Price": row["purchase_price"] / 100
+                                } for row in result["not_found_rows"]
+                            ]
+                            st.table(table_data)
+                        
+                        if result["unmatched_rows"]:
+                            st.warning(f"Serial numbers not matched")
+                            table_data = [
+                                {
+                                    "Serial Number": row["serial_number"],
+                                    "Product Name": row["product_name"],
+                                    "Purchase Price": row["purchase_price"] / 100
+                                } for row in result["unmatched_rows"]
+                            ]
+                            st.table(table_data)
+                        
+                        if result["invalid_rows"]:
+                            st.warning(f"Ignored products from file")
+                            table_data = [
+                                {
+                                    "Serial Number": row["serial_number"] if row["serial_number"] else "—" ,
+                                    "Product Name": row["product_name"] if row["product_name"] else "—" ,
+                                    "Purchase Price": row["purchase_price"] / 100 if row["purchase_price"] else "—" 
+                                } for row in result["invalid_rows"]
                             ]
                             st.table(table_data)
                 except httpx.HTTPStatusError as e:

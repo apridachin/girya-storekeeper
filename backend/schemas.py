@@ -35,7 +35,9 @@ class WarehouseStockSearchResult(BaseModel):
 class CreateDemandResult(BaseModel):
     demand: WarehouseDemand
     processed_rows: list[CsvRow]
-    ignored_rows: list[CsvRow]
+    not_found_rows: list[CsvRow]
+    unmatched_rows: list[CsvRow]
+    invalid_rows: list[CsvRow]
 
 class StockSearchRow(WarehouseStockItem):
     url: str | None = Field(..., description="URL of the product")
