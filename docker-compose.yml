@@ -45,5 +45,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    volumes:
-      - ./backend/uploads:/app/backend/uploads
