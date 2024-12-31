@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     warehouse_main_store_id: str = Field("WAREHOUSE_MAIN_STORE_ID", description="Warehouse main store ID")
     warehouse_android_group_id: str = Field("WAREHOUSE_ANDROID_GROUP_ID", description="Warehouse Android group ID")
 
-    # Partners
+    # Partners and Competitors
     partners_api_url: str = Field("PARTNERS_API_URL", description="Partners API URL")
+    competitors_api_url: str = Field("COMPETITORS_API_URL", description="Competitors API URL")
 
     # LLMs
     llm_api_key: str = Field("LLM_API_KEY", description="LLM Provider API key")

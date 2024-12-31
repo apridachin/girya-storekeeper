@@ -14,9 +14,10 @@ def create_partners_tab():
                     table_data = [
                         {
                             "Product": row["name"],
-                            "Warehouse Stock": f"{row['stock']:.0f}" if row.get("stock") else "—",
-                            "Warehouse Price": f"{row['price'] / 100} RUB" if row.get("price") else "—",
-                            "Partner Link": row["url"] if row.get("url") else "Not Found",
+                            "Warehouse Stock": row.get("stock", "-"),
+                            "Warehouse Price": f"{row.get('price', 0) / 100} RUB",
+                            "Partner Product": row.get("found_name", "Not Found"),
+                            "Partner Link": row.get("found_url", "Not Found"),
                         } for row in stock_data["rows"]
                     ]
                     st.markdown(f"Found {stock_data['size']} products")

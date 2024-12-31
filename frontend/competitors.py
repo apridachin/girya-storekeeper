@@ -13,10 +13,12 @@ def create_competitors_tab():
                 if stock_data["size"] > 0:
                     table_data = [
                         {
-                            "Product": row["name"],
-                            "Warehouse Stock": f"{row['stock']:.0f}" if row.get("stock") else "—",
-                            "Warehouse Price": f"{row['price'] / 100} RUB" if row.get("price") else "—",
-                            "Competitor Link": row["url"] if row.get("url") else "Not Found",
+                            "Product": row.get("name", "Not Found"),
+                            "Warehouse Stock": row.get("stock", "-"),
+                            "Warehouse Price": f"{row.get('price', 0) / 100} RUB",
+                            "Competitor Product": row.get("found_name", "Not Found"),
+                            "Competitor Price": row.get("found_price", "Not Found"),
+                            "Competitor Link": row.get("found_url", "Not Found"),
                         } for row in stock_data["rows"]
                     ]
                     st.markdown(f"Found {stock_data['size']} products")

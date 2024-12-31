@@ -10,6 +10,8 @@ services:
       - frontend
       - backend
     restart: unless-stopped
+    mem_limit: 64m
+    memswap_limit: 128m
 
   frontend:
     build:
@@ -22,11 +24,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    mem_limit: 128m
+    memswap_limit: 256m
 
   backend:
     build:
@@ -40,8 +39,5 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    mem_limit: 196m
+    memswap_limit: 256m

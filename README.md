@@ -82,6 +82,8 @@ The application will be available at:
 - At least 512MB RAM
 
 ### Deployment Steps
+First of all, you need to install Docker and Docker Compose on your server.
+
 1. Clone the repository on your server:
 ```bash
 git clone https://github.com/apridachin/girya-storekeeper.git

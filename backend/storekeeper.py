@@ -1,4 +1,7 @@
+import asyncio
+
 from fastapi import UploadFile, HTTPException, Depends
+from litellm.llms import base
 
 from backend.schemas import CreateDemandResult, PartnersResponse, StockSearchResult, StockSearchRow, WarehouseProduct, CompetitorsResponse
 from backend.services.csv_service import CSVService, CsvRow
@@ -18,7 +21,7 @@ class StoreKeeper:
 
         # Services
         self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, access_token=access_token)
-        self.competitors = CompetitorsService()
+        self.competitors = CompetitorsService(base_url=settings.competitors_api_url)
         self.partners = PartnersService(base_url=settings.partners_api_url)
         self.llm_service = LLMService(api_key=settings.llm_api_key, model=settings.llm_name)
         self.csv_service = CSVService(upload_folder=settings.upload_folder)
@@ -135,28 +138,22 @@ class StoreKeeper:
         for item in stock.rows:
             logger.debug("Searching for product", extra={"product_name": item.name})
             html = await self.partners.search(item.name)
-            instructions = (
-                f"Find the product on the page. Product name: {item.name}. "
-                "If the product is found the product info in expected format. "
-            )
-            found_product: PartnersResponse = await self.llm_service.parse_html(
-                instructions=instructions,
-                html=html,
-                response_format=PartnersResponse,
-            )
-            logger.info(
+            found_product: PartnersResponse = self.partners.parse_product_html(html)
+            logger.debug(
                 "Product search completed",
                 extra={
                     "product_name": item.name,
-                    "found": found_product != "NOT FOUND"
+                    "found": bool(found_product)
                 }
             )
             result.append(
                 StockSearchRow(
                     name=item.name,
                     stock=item.stock,
-                    price=str(item.price),
-                    url=found_product.url,
+                    price=item.price,
+                    found_name=found_product.product_name if found_product else None,
+                    found_price=None,
+                    found_url=found_product.url if found_product else None,
                 )
             )
          
@@ -173,32 +170,26 @@ class StoreKeeper:
         result = []
 
         logger.info("Processing stock items", extra={"total_items": len(stock.rows), "processing_items": min(3, len(stock.rows))})
-        for item in stock.rows[:3]:
+        for item in stock.rows:
             logger.debug("Searching for product", extra={"product_name": item.name})
             html = await self.competitors.search(item.name)
             if html: 
-                instructions = (
-                    f"Find the product on the page. Product name: {item.name}. "
-                    "If the product is found the product info in expected format. "
-                )
-                found_product: CompetitorsResponse = await self.llm_service.parse_html(
-                    instructions=instructions,
-                    html=html,
-                    response_format=CompetitorsResponse,
-                )
-                logger.info(
+                found_product: CompetitorsResponse = self.competitors.parse_product_html(html)
+                logger.debug(
                     "Product search completed",
                     extra={
                         "product_name": item.name,
-                        "found": found_product != "NOT FOUND"
+                        "found": bool(found_product)
                     }
                 )
                 result.append(
                     StockSearchRow(
                         name=item.name,
                         stock=item.stock,
-                        price=found_product.price,
-                        url=found_product.url,
+                        price=item.price,
+                        found_name=found_product.product_name if found_product else None,
+                        found_price=found_product.price if found_product else None,
+                        found_url=found_product.url if found_product else None,
                     )
                 )
             else:

@@ -18,7 +18,7 @@ class LLMService:
         messages: List[Dict[str, str]],
         response_format: BaseModel = None,
         **kwargs
-    ) -> str | BaseModel:
+    ) -> BaseModel | None:
         """Create a completion using LLM API"""
         if not messages:
             logger.error("No messages provided for completion")
@@ -32,7 +32,18 @@ class LLMService:
         )
         result = response.choices[0].message.content
         if response_format:
-            result = response_format.model_validate(json.loads(result))
+            try: 
+                result = response_format.model_validate(json.loads(result))
+            except TypeError as e:
+                logger.warning(
+                    "Failed to parse response",
+                    extra={
+                        "response": result,
+                        "error": str(e)
+                    }
+                )
+                result = None
+                
 
         logger.debug(
             "Completion created",
@@ -45,7 +56,7 @@ class LLMService:
         return result
 
 
-    async def parse_html(self, instructions: str, html: str, response_format: BaseModel = None) -> str | BaseModel:
+    async def parse_html(self, instructions: str, html: str, response_format: BaseModel = None) -> BaseModel | None:
         logger.debug(
             "Parsing HTML on the base of instructions",
             extra={

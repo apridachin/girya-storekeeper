@@ -40,8 +40,9 @@ class CreateDemandResult(BaseModel):
     invalid_rows: list[CsvRow]
 
 class StockSearchRow(WarehouseStockItem):
-    url: str | None = Field(..., description="URL of the product")
-    price: str | None = Field(..., description="Price of the product")
+    found_url: str | None = Field(..., description="URL of the found product")
+    found_price: str | None = Field(..., description="Price of the found product")
+    found_name: str | None = Field(..., description="Name of the found product")
 
 class StockSearchResult(BaseModel):
     size: int
@@ -53,5 +54,5 @@ class PartnersResponse(BaseModel):
 
 class CompetitorsResponse(BaseModel):
     product_name: str = Field(..., description="Name of the product")
-    price: float | None = Field(..., description="Price of the product")
+    price: str | None = Field(..., description="Price of the product")
     url: str | None = Field(..., description="URL of the product")

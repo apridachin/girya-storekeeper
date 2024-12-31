@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import httpx
 from fastapi import HTTPException
 
+from backend.schemas import PartnersResponse
 from backend.utils.logger import logger
 
 
@@ -12,7 +13,7 @@ class PartnersService:
         self.base_url = base_url
 
     async def search(self, query: str) -> str:
-        """Search products on Partners site and return HTML content of div with results """
+        """Search products on Partners site and return HTML content."""
         if not query:
             logger.error("Empty search query provided")
             raise HTTPException(status_code=400, detail="Search query is required")
@@ -26,12 +27,30 @@ class PartnersService:
                 follow_redirects=True
             )
             response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
-            products_div = soup.find('div', class_='catalog-list')
+            return response.text
+
+    def parse_product_html(self, html: str) -> PartnersResponse | None:
+        """Parse HTML content of product page and return product data"""
+        if not html:
+            return None
             
-            if products_div:
-                logger.info("Products found in search results", extra={"query": query})
-            else:
-                logger.warning("No products found", extra={"query": query})
-                
-            return str(products_div) if products_div else ""
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Find first catalog item
+        catalog_item = soup.find('div', class_='catalog-item')
+        if not catalog_item:
+            return None
+            
+        # Find title div and link inside it
+        title_div = catalog_item.find('div', class_='catalog-item__title')
+        if not title_div:
+            return None
+            
+        link = title_div.find('a')
+        if not link:
+            return None
+            
+        return PartnersResponse(
+            url=urljoin(self.base_url, link.get('href', '')),
+            product_name=link.text.strip()
+        )

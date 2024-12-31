@@ -42,7 +42,7 @@ async def create_demand(credentials: Dict[str, str], file) -> Optional[Dict]:
             f"{API_BASE_URL}/demand",
             files=files,
             headers=headers,
-            timeout=600,
+            timeout=60*2,
         )
         response.raise_for_status()
         return response.json()
@@ -58,7 +58,7 @@ async def get_partners_stock(credentials: Dict[str, str]) -> Optional[Dict]:
         response = await client.get(
             f"{API_BASE_URL}/stock/partners",
             headers=headers,
-            timeout=120,
+            timeout=60*5,
         )
         response.raise_for_status()
         return response.json()
@@ -74,7 +74,7 @@ async def get_competitors_stock(credentials: Dict[str, str]) -> Optional[Dict]:
         response = await client.get(
             f"{API_BASE_URL}/stock/competitors",
             headers=headers,
-            timeout=120,
+            timeout=60*5,
         )
         response.raise_for_status()
         return response.json()
