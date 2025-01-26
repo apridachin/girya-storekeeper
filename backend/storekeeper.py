@@ -1,14 +1,16 @@
-import asyncio
-
 from fastapi import UploadFile, HTTPException, Depends
-from litellm.llms import base
 
-from backend.schemas import CreateDemandResult, PartnersResponse, StockSearchResult, StockSearchRow, WarehouseProduct, CompetitorsResponse
+from backend.schemas import (
+    CreateDemandResult, 
+    PartnersResponse,
+    StockSearchResult,
+    StockSearchRow,
+    WarehouseProduct,
+)
 from backend.services.csv_service import CSVService, CsvRow
-from backend.services.competitors import CompetitorsService
+from backend.services.competitors import CompetitorsSearchException, CompetitorsService
 from backend.services.partners import PartnersService
 from backend.services.warehouse import WarehouseService
-from backend.services.llm import LLMService
 from backend.utils.auth import login_header, password_header, get_warehouse_access_token
 from backend.utils.logger import logger
 from backend.utils.config import get_settings
@@ -21,9 +23,8 @@ class StoreKeeper:
 
         # Services
         self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, access_token=access_token)
-        self.competitors = CompetitorsService(base_url=settings.competitors_api_url)
+        self.competitors = CompetitorsService()
         self.partners = PartnersService(base_url=settings.partners_api_url)
-        self.llm_service = LLMService(api_key=settings.llm_api_key, model=settings.llm_name)
         self.csv_service = CSVService(upload_folder=settings.upload_folder)
 
         # Warehouse entities
@@ -159,52 +160,43 @@ class StoreKeeper:
          
         logger.info("Stock search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)
-         
+
     async def search_competitors_stock(self) -> StockSearchResult:
         """Search for stock in Warehouse and get prices from Partners site"""
         logger.info("Starting stock search")
-        stock = await self.warehouse.search_stock(
-            store_id=self.main_store_id, # TODO: change store? 
-            product_group_id=self.android_group_id # TODO: change group
-        )
+        stock = await self.warehouse.get_apple_stock(store_id=self.main_store_id)
         result = []
-
-        logger.info("Processing stock items", extra={"total_items": len(stock.rows), "processing_items": min(3, len(stock.rows))})
-        for item in stock.rows:
-            logger.debug("Searching for product", extra={"product_name": item.name})
-            html = await self.competitors.search(item.name)
-            if html: 
-                found_product: CompetitorsResponse = self.competitors.parse_product_html(html)
-                logger.debug(
-                    "Product search completed",
-                    extra={
-                        "product_name": item.name,
-                        "found": bool(found_product)
-                    }
-                )
-                result.append(
-                    StockSearchRow(
-                        name=item.name,
-                        stock=item.stock,
-                        price=item.price,
-                        found_name=found_product.product_name if found_product else None,
-                        found_price=found_product.price if found_product else None,
-                        found_url=found_product.url if found_product else None,
+        for folder in stock[:3]:
+            for item in folder.rows[:3]:
+                try:
+                    logger.debug("Searching for product", extra={"product_name": item.name})
+                    product = await self.competitors.search(query=item.name)
+                    result.append(
+                        StockSearchRow(
+                            name=item.name,
+                            stock=item.stock,
+                            price=item.price,
+                            found_name=product.name if product else None,
+                            found_price=product.price if product else None,
+                            found_url=product.url if product else None,
+                        )
                     )
-                )
-            else:
-                logger.warning("No HTML content returned", extra={"product_name": item.name})
-                result.append(
-                    StockSearchRow(
-                        name=item.name,
-                        stock=item.stock,
-                        price=item.price,
-                        url=None,
+                except CompetitorsSearchException:
+                    result.append(
+                        StockSearchRow(
+                            name=item.name,
+                            stock=item.stock,
+                            price=item.price,
+                            found_name=None,
+                            found_price=None,
+                            found_url=None,
+                        )
                     )
-                )
-        
+                    continue
+            
         logger.info("Stock search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)
+
 
 
 async def get_storekeeper(

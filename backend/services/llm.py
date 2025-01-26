@@ -1,62 +1,56 @@
 import json
 from typing import List, Dict
 
-from litellm import acompletion
+from openai import AsyncOpenAI
 from fastapi import HTTPException
-from openai import BaseModel
+from pydantic import BaseModel
 
 from backend.utils.logger import logger
 
 
+class HTMLParsingException(Exception):
+    pass
+
+
 class LLMService:
-    def __init__(self, api_key: str, model: str):
-        self.api_key = api_key
+    def __init__(self, base_url: str, api_key: str, model: str):
+        self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         self.model = model
-        
+
     async def create_completion(
         self,
+        model: str,
         messages: List[Dict[str, str]],
-        response_format: BaseModel = None,
-        **kwargs
-    ) -> BaseModel | None:
+    ) -> str:
         """Create a completion using LLM API"""
         if not messages:
             logger.error("No messages provided for completion")
             raise HTTPException(status_code=400, detail="Messages are required")
 
-        response = await acompletion(
-            api_key=self.api_key,
-            model=self.model,
+        response = await self.client.chat.completions.create(
+            model=model,
             messages=messages,
-            response_format=response_format,
+            response_format={"type": "json_object"},
         )
         result = response.choices[0].message.content
-        if response_format:
-            try: 
-                result = response_format.model_validate(json.loads(result))
-            except TypeError as e:
-                logger.warning(
-                    "Failed to parse response",
-                    extra={
-                        "response": result,
-                        "error": str(e)
-                    }
-                )
-                result = None
-                
 
         logger.debug(
             "Completion created",
             extra={
-                "messages": messages,
-                "usage": response.get("usage")
+                "completion_tokens": response.usage.completion_tokens,
+                "prompt_tokens": response.usage.prompt_tokens,
+                "total_tokens": response.usage.total_tokens,
             }
         )
 
         return result
 
-
-    async def parse_html(self, instructions: str, html: str, response_format: BaseModel = None) -> BaseModel | None:
+    async def parse_html(
+        self,
+        html: str,
+        instructions: str,
+        response_format: BaseModel,
+    ) -> BaseModel:
         logger.debug(
             "Parsing HTML on the base of instructions",
             extra={
@@ -80,11 +74,15 @@ class LLMService:
         }
 
         try:
-            result = await self.create_completion(messages=[system_message, user_message], response_format=response_format)
+            completion = await self.create_completion(
+                model=self.model,
+                messages=[system_message, user_message],
+            )
+            result = response_format.model_validate(json.loads(completion))
             return result
         except Exception as e:
             logger.error(
                 "Error parsing HTML",
                 extra={"error": str(e)}
             )
-            raise
+            raise HTMLParsingException() from e

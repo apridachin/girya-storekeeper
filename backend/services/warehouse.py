@@ -1,13 +1,14 @@
 import asyncio
-import base64
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from urllib.parse import urljoin
 
 import httpx
 from fastapi import HTTPException
 
-from backend.schemas import WarehouseProduct, WarehouseDemand, WarehouseSearchProducts, WarehouseStockItem, WarehouseStockSearchResult
+from backend.schemas import (
+    WarehouseProduct, WarehouseDemand, WarehouseSearchProducts,
+    WarehouseStockItem, WarehouseStockSearchResult, WarehouseProductFolder
+)
 from backend.utils.logger import logger
 
 
@@ -91,7 +92,8 @@ class WarehouseService:
             not_found=not_found
         )
 
-    async def create_demand(self, 
+    async def create_demand(
+        self,
         organization_id: str,
         counterparty_id: str,
         store_id: str,
@@ -140,7 +142,7 @@ class WarehouseService:
 
         response = await self._make_request(
             method="POST",
-            endpoint=f"entity/demand",
+            endpoint="entity/demand",
             json=payload
         )
 
@@ -170,7 +172,7 @@ class WarehouseService:
         logger.debug("Making stock search request", extra={"filter": filter})
         response = await self._make_request(
             method="GET",
-            endpoint=f"report/stock/all",
+            endpoint="report/stock/all",
             params={"filter": filter}
         )
         
@@ -186,4 +188,37 @@ class WarehouseService:
         )
         
         logger.debug("Stock search completed", extra={"total_items": result.size})
+        return result
+
+    async def get_apple_product_groups(self) -> list[WarehouseProductFolder]:
+        """Get a list of apple product folders in Warehouse"""
+        logger.debug("Getting apple product folders")
+        
+        response = await self._make_request(
+            method="GET",
+            endpoint="entity/productfolder",
+        )
+        
+        result = [
+            WarehouseProductFolder(
+                id=row.get("id"),
+                name=row.get("name"),
+                archived=row.get("archived"),
+            ) for row in response.get("rows", [])
+            if any(keyword in row.get("name", "").lower() for keyword in ["apple", "iphone"])
+        ]
+
+        logger.debug("Product folders received", extra={"folder_count": len(result)})
+        return result
+
+    async def get_apple_stock(self, store_id: str) -> list[WarehouseStockSearchResult]:
+        """Get Apple stock. Not parallelized because of aggressive rate limits"""
+        result = []
+        apple_product_group = await self.get_apple_product_groups()
+        for folder in apple_product_group:
+            stock = await self.search_stock(
+                store_id=store_id,
+                product_group_id=folder.id
+            )
+            result.append(stock)
         return result

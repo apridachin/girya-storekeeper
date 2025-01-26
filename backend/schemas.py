@@ -31,6 +31,11 @@ class WarehouseStockSearchResult(BaseModel):
     size: int = Field(..., description="Size of the stock search result")
     rows: list[WarehouseStockItem] = Field(..., description="List of products in the stock search result")
 
+class WarehouseProductFolder(BaseModel):
+    id: str = Field(..., description="ID of the product folder")
+    name: str = Field(..., description="Name of the product folder")
+    archived: bool = Field(..., description="Whether the product folder is archived")
+
 # StoreKeeper schemas
 class CreateDemandResult(BaseModel):
     demand: WarehouseDemand
@@ -52,7 +57,7 @@ class PartnersResponse(BaseModel):
     product_name: str = Field(..., description="Name of the product")
     url: str | None = Field(..., description="URL of the product")
 
-class CompetitorsResponse(BaseModel):
-    product_name: str = Field(..., description="Name of the product")
+class CompetitorsProduct(BaseModel):
+    name: str = Field(..., description="Name of the product")
     price: str | None = Field(..., description="Price of the product")
     url: str | None = Field(..., description="URL of the product")

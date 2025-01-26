@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     competitors_api_url: str = Field("COMPETITORS_API_URL", description="Competitors API URL")
 
     # LLMs
+    llm_base_url: str = Field("LLM_BASE_URL", description="LLM Provider API URL")
     llm_api_key: str = Field("LLM_API_KEY", description="LLM Provider API key")
     llm_name: str = Field("LLM_NAME", description="LLM name")
 
@@ -30,6 +31,6 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 
-@lru_cache
+# @lru_cache
 def get_settings() -> Settings:
     return Settings()
