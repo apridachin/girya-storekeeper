@@ -166,8 +166,8 @@ class StoreKeeper:
         logger.info("Starting stock search")
         stock = await self.warehouse.get_apple_stock(store_id=self.main_store_id)
         result = []
-        for folder in stock[:3]:
-            for item in folder.rows[:3]:
+        for folder in stock:
+            for item in folder.rows:
                 try:
                     logger.debug("Searching for product", extra={"product_name": item.name})
                     product = await self.competitors.search(query=item.name)

@@ -10,8 +10,12 @@ services:
       - frontend
       - backend
     restart: unless-stopped
-    mem_limit: 64m
-    memswap_limit: 128m
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
 
   frontend:
     build:
@@ -24,8 +28,12 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-    mem_limit: 128m
-    memswap_limit: 256m
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
 
   backend:
     build:
@@ -39,5 +47,15 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    mem_limit: 196m
-    memswap_limit: 256m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.7'
+          memory: 384M
+        reservations:
+          cpus: '0.3'
+          memory: 256M
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
