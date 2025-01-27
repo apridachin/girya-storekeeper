@@ -5,6 +5,7 @@ import os
 
 from fastapi import UploadFile, HTTPException
 
+from backend.utils.logger import logger
 from backend.schemas import CsvRow
 
 
@@ -45,7 +46,30 @@ class CSVService:
                     purchase_price=self.parse_price(row['Цена поставки']),
                 ) for row in reader
             ]
+    
+    def filter_rows(self, rows: list[CsvRow]) -> tuple[list[CsvRow], list[CsvRow]]:
+        valid_rows = []
+        invalid_rows = []
+        for row in rows:
+            if self.is_valid_row(row):
+                valid_rows.append(row)
+            else:
+                invalid_rows.append(row)
         
+        logger.info(
+            "Filtered rows",
+            extra={
+                "valid_rows": len(valid_rows),
+                "invalid_rows": len(invalid_rows)
+            }
+        )
+        
+        return valid_rows, invalid_rows
+
+    def is_valid_row(self, row: CsvRow) -> bool:
+        if not row.serial_number or not row.product_name or not row.purchase_price:
+            return False
+        return True
 
     def parse_price(self, row: str) -> int | None:
         """Parse price string into float, handling various formats.

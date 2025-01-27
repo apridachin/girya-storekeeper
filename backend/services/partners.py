@@ -12,7 +12,7 @@ class PartnersService:
     def __init__(self, base_url: str):
         self.base_url = base_url
 
-    async def search(self, query: str) -> str:
+    async def search(self, query: str) -> PartnersResponse | None:
         """Search products on Partners site and return HTML content."""
         if not query:
             logger.error("Empty search query provided")
@@ -27,29 +27,29 @@ class PartnersService:
                 follow_redirects=True
             )
             response.raise_for_status()
-            return response.text
+            return self.parse_product_html(response.text)
 
     def parse_product_html(self, html: str) -> PartnersResponse | None:
         """Parse HTML content of product page and return product data"""
         if not html:
             return None
-            
+
         soup = BeautifulSoup(html, 'html.parser')
-        
+
         # Find first catalog item
         catalog_item = soup.find('div', class_='catalog-item')
         if not catalog_item:
             return None
-            
+
         # Find title div and link inside it
         title_div = catalog_item.find('div', class_='catalog-item__title')
         if not title_div:
             return None
-            
+
         link = title_div.find('a')
         if not link:
             return None
-            
+
         return PartnersResponse(
             url=urljoin(self.base_url, link.get('href', '')),
             product_name=link.text.strip()

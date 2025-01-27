@@ -1,7 +1,7 @@
 from fastapi import UploadFile, HTTPException, Depends
 
 from backend.schemas import (
-    CreateDemandResult, 
+    CreateDemandResult,
     PartnersResponse,
     StockSearchResult,
     StockSearchRow,
@@ -9,6 +9,7 @@ from backend.schemas import (
 )
 from backend.services.csv_service import CSVService, CsvRow
 from backend.services.competitors import CompetitorsSearchException, CompetitorsService
+from backend.services.llm import LLMService
 from backend.services.partners import PartnersService
 from backend.services.warehouse import WarehouseService
 from backend.utils.auth import login_header, password_header, get_warehouse_access_token
@@ -23,9 +24,16 @@ class StoreKeeper:
 
         # Services
         self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, access_token=access_token)
-        self.competitors = CompetitorsService()
-        self.partners = PartnersService(base_url=settings.partners_api_url)
         self.csv_service = CSVService(upload_folder=settings.upload_folder)
+        self.partners = PartnersService(base_url=settings.partners_api_url)
+        self.competitors = CompetitorsService(
+            base_url=settings.competitors_api_url,
+            llm=LLMService(
+                base_url=settings.llm_base_url,
+                api_key=settings.llm_api_key,
+                model=settings.llm_name
+            )
+        )
 
         # Warehouse entities
         self.organization_id = settings.warehouse_organization_id
@@ -36,12 +44,10 @@ class StoreKeeper:
 
     async def create_demand(self, file: UploadFile) -> CreateDemandResult:
         """Process CSV file and create demand in Warehouse"""
-        logger.debug("Processing CSV file for demand creation")
+        logger.info("Start creating demand", extra={"file_name": file.filename})
         file_path = await self.csv_service.save_upload_file(file)
         rows = self.csv_service.read_csv_data(file_path)
-
-        valid_rows, invalid_rows = self.filter_rows(rows)
-        logger.info("File processed", extra={"valid_rows": len(valid_rows), "invalid_rows": len(invalid_rows)})
+        valid_rows, invalid_rows = self.csv_service.filter_rows(rows)
 
         if not valid_rows:
             logger.error("No valid rows found in CSV file")
@@ -51,11 +57,8 @@ class StoreKeeper:
             )
         
         warehouse_products = await self.warehouse.search_products([row.product_name for row in valid_rows])
-        not_found_rows = [row for row in valid_rows if row.product_name in warehouse_products.not_found]
-        logger.info("Search completed", extra={"product_count": len(warehouse_products.products), "not_found": len(warehouse_products.not_found)})
-        
         prepared_products, unmatched_rows = self.prepare_products(valid_rows, warehouse_products.products)
-        logger.info("Prepared products", extra={"product_count": len(prepared_products), "unmatched_rows": len(unmatched_rows)})
+        not_found_rows = [row for row in valid_rows if row.product_name in warehouse_products.not_found]
 
         result = await self.warehouse.create_demand(
             organization_id=self.organization_id,
@@ -91,7 +94,7 @@ class StoreKeeper:
                 (p for p in products if p.things and row.serial_number in p.things),
                 None
             )
-            
+
             if not matched_product:
                 unmatched_rows.append(row)
                 logger.warning(
@@ -99,7 +102,7 @@ class StoreKeeper:
                     extra={"serial_number": row.serial_number, "product_name": row.product_name}
                 )
                 continue
-                
+
             adjusted_product = WarehouseProduct(
                 id=matched_product.id,
                 name=row.product_name,
@@ -107,25 +110,16 @@ class StoreKeeper:
                 purchase_price=row.purchase_price
             )
             prepared_products.append(adjusted_product)
-            
+            logger.info(
+                "Prepared products",
+                extra={
+                    "product_count": len(prepared_products),
+                    "unmatched_rows": len(unmatched_rows)
+                }
+            )
+
         return prepared_products, unmatched_rows
 
-    def filter_rows(self, rows: list[CsvRow]) -> tuple[list[CsvRow], list[CsvRow]]:
-        valid_rows = []
-        invalid_rows = []
-        for row in rows:
-            if self.is_valid_row(row):
-                valid_rows.append(row)
-            else:
-                invalid_rows.append(row)
-        
-        return valid_rows, invalid_rows
-
-    def is_valid_row(self, row: CsvRow) -> bool:
-        if not row.serial_number or not row.product_name or not row.purchase_price:
-            return False
-        return True
-            
     async def search_partners_stock(self) -> StockSearchResult:
         """Search for stock in Warehouse and get prices from Partners site"""
         logger.info("Starting stock search")
@@ -135,11 +129,16 @@ class StoreKeeper:
         )
         result = []
 
-        logger.info("Processing stock items", extra={"total_items": len(stock.rows), "processing_items": min(3, len(stock.rows))})
+        logger.info(
+            "Start processing stock items",
+            extra={
+                "total_items": len(stock.rows),
+                "processing_items": len(stock.rows)
+            }
+        )
         for item in stock.rows:
             logger.debug("Searching for product", extra={"product_name": item.name})
-            html = await self.partners.search(item.name)
-            found_product: PartnersResponse = self.partners.parse_product_html(html)
+            found_product: PartnersResponse = await self.partners.search(item.name)
             logger.debug(
                 "Product search completed",
                 extra={
@@ -158,7 +157,7 @@ class StoreKeeper:
                 )
             )
          
-        logger.info("Stock search completed", extra={"processed_items": len(result)})
+        logger.info("Partners search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)
 
     async def search_competitors_stock(self) -> StockSearchResult:
@@ -166,7 +165,7 @@ class StoreKeeper:
         logger.info("Starting stock search")
         stock = await self.warehouse.get_apple_stock(store_id=self.main_store_id)
         result = []
-        for folder in stock:
+        for folder in stock: # TODO: process items by folder and return folder result to the user.
             for item in folder.rows:
                 try:
                     logger.debug("Searching for product", extra={"product_name": item.name})
@@ -194,9 +193,8 @@ class StoreKeeper:
                     )
                     continue
             
-        logger.info("Stock search completed", extra={"processed_items": len(result)})
+        logger.info("Competitors search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)
-
 
 
 async def get_storekeeper(

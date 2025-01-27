@@ -86,6 +86,14 @@ class WarehouseService:
                     extra={"product_name": name, "error": str(e)}
                 )
                 not_found.append(name)
+
+        logger.info(
+            "Search completed",
+            extra={
+                "product_count": len(products),
+                "not_found": len(not_found)
+            }
+        )
         
         return WarehouseSearchProducts(
             products=products,

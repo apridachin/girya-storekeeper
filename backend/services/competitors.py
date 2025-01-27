@@ -6,7 +6,6 @@ from playwright.async_api import async_playwright, Browser, BrowserContext
 
 from backend.services.llm import LLMService, HTMLParsingException
 from backend.schemas import CompetitorsProduct
-from backend.utils.config import get_settings
 from backend.utils.logger import logger
 
 
@@ -15,11 +14,9 @@ class CompetitorsSearchException(Exception):
 
 
 class CompetitorsService:
-    def __init__(self):
-        settings = get_settings()
-
-        self.base_url = settings.competitors_api_url
-        self.llm = LLMService(base_url=settings.llm_base_url, api_key=settings.llm_api_key, model=settings.llm_name)
+    def __init__(self, base_url: str, llm: LLMService):
+        self.base_url = base_url
+        self.llm = llm
 
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
@@ -101,7 +98,7 @@ class CompetitorsService:
                 search_page_html = BeautifulSoup(html, 'html.parser').find('div', class_='digi-products')
                 search_page_product = await self.parse_product_html(item_name=query, html=str(search_page_html))
                 search_page_product.url = urljoin(self.base_url, search_page_product.url)
-                logger.debug(
+                logger.info(
                     "Product found on search page",
                     extra={
                             "product_name": search_page_product.name,
@@ -110,6 +107,7 @@ class CompetitorsService:
                         }
                     )
 
+                # TODO: Check the product page because the price on the search page is not accurate
                 # product_page = await self._browser.new_page()
                 # product_url = urljoin(self.base_url, search_page_product.url)
                 # await product_page.goto(product_url)
@@ -130,11 +128,6 @@ class CompetitorsService:
                     
         except Exception as e:
             logger.error("Failed to search competitors", extra={"error": str(e), "query": query})
-            # If we get a connection error, cleanup and retry once
-            if "Connection closed" in str(e) or "Target closed" in str(e):
-                logger.info("Connection lost, cleaning up and retrying", extra={"query": query})
-                await self._cleanup()
-                return await self.search(query)
             raise CompetitorsSearchException() from e
 
     async def parse_product_html(self, item_name: str, html: str) -> CompetitorsProduct:
