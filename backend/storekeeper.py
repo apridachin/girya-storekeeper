@@ -11,7 +11,7 @@ from backend.services.csv_service import CSVService, CsvRow
 from backend.services.competitors import CompetitorsSearchException, CompetitorsService
 from backend.services.llm import LLMService
 from backend.services.partners import PartnersService
-from backend.services.warehouse import WarehouseService
+from backend.services.warehouse import WarehouseService, WarehouseProductFolder
 from backend.utils.auth import login_header, password_header, get_warehouse_access_token
 from backend.utils.logger import logger
 from backend.utils.config import get_settings
@@ -31,6 +31,7 @@ class StoreKeeper:
             llm=LLMService(
                 base_url=settings.llm_base_url,
                 api_key=settings.llm_api_key,
+                provider=settings.llm_provider,
                 model=settings.llm_name
             )
         )
@@ -160,38 +161,42 @@ class StoreKeeper:
         logger.info("Partners search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)
 
-    async def search_competitors_stock(self) -> StockSearchResult:
+    async def get_apple_product_groups(self) -> list[WarehouseProductFolder]:
+        return await self.warehouse.get_apple_product_groups()
+
+    async def search_competitors_stock(self, product_group_id: int) -> StockSearchResult:
         """Search for stock in Warehouse and get prices from Partners site"""
         logger.info("Starting stock search")
-        stock = await self.warehouse.get_apple_stock(store_id=self.main_store_id)
+        stock = await self.warehouse.search_stock(
+            store_id=self.main_store_id,
+            product_group_id=product_group_id
+        )
         result = []
-        for folder in stock: # TODO: process items by folder and return folder result to the user.
-            for item in folder.rows:
-                try:
-                    logger.debug("Searching for product", extra={"product_name": item.name})
-                    product = await self.competitors.search(query=item.name)
-                    result.append(
-                        StockSearchRow(
-                            name=item.name,
-                            stock=item.stock,
-                            price=item.price,
-                            found_name=product.name if product else None,
-                            found_price=product.price if product else None,
-                            found_url=product.url if product else None,
-                        )
+        for item in stock.rows:
+            try:
+                logger.debug("Searching for product", extra={"product_name": item.name})
+                product = await self.competitors.search(query=item.name)
+                result.append(
+                    StockSearchRow(
+                        name=item.name,
+                        stock=item.stock,
+                        price=item.price,
+                        found_name=product.name if product else None,
+                        found_price=product.price if product else None,
+                        found_url=product.url if product else None,
                     )
-                except CompetitorsSearchException:
-                    result.append(
-                        StockSearchRow(
-                            name=item.name,
-                            stock=item.stock,
-                            price=item.price,
-                            found_name=None,
-                            found_price=None,
-                            found_url=None,
-                        )
+                )
+            except CompetitorsSearchException:
+                result.append(
+                    StockSearchRow(
+                        name=item.name,
+                        stock=item.stock,
+                        price=item.price,
+                        found_name=None,
+                        found_price=None,
+                        found_url=None,
                     )
-                    continue
+                )
             
         logger.info("Competitors search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)

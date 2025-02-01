@@ -1,6 +1,9 @@
 import json
-from typing import List, Dict
+import asyncio
+import time
+from typing import Dict
 
+import litellm
 from openai import AsyncOpenAI
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -13,14 +16,17 @@ class HTMLParsingException(Exception):
 
 
 class LLMService:
-    def __init__(self, base_url: str, api_key: str, model: str):
+    def __init__(self, base_url: str, api_key: str, provider: str, model: str):
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        litellm.api_key = self.client.api_key
+        litellm.api_base = self.client.base_url
+        self.provider = provider
         self.model = model
 
     async def create_completion(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[Dict[str, str]],
     ) -> str:
         """Create a completion using LLM API"""
         if not messages:
@@ -37,6 +43,33 @@ class LLMService:
         logger.debug(
             "Completion created",
             extra={
+                "completion_tokens": response.usage.completion_tokens,
+                "prompt_tokens": response.usage.prompt_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+        )
+
+        return result
+
+    async def complete(
+        self,
+        model: str,
+        provider: str,
+        messages: list[Dict[str, str]],
+    ):
+        """Complete a text using LLM API"""
+        response = await litellm.acompletion(
+            model=provider + '/' + model, 
+            messages=messages,
+            response_format={"type": "json_object"},
+        )   
+        result = response.choices[0].message.content
+
+        logger.debug(
+            "Litellm completion created",
+            extra={
+                "model": model,
+                "provider": provider,
                 "completion_tokens": response.usage.completion_tokens,
                 "prompt_tokens": response.usage.prompt_tokens,
                 "total_tokens": response.usage.total_tokens,
@@ -74,8 +107,9 @@ class LLMService:
         }
 
         try:
-            completion = await self.create_completion(
+            completion = await self.complete(
                 model=self.model,
+                provider=self.provider,
                 messages=[system_message, user_message],
             )
             result = response_format.model_validate(json.loads(completion))

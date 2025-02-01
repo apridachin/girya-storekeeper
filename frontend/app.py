@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("Inventory Management")
-tab1, tab2, tab3 = st.tabs(["Create Demand", "Partners Stock", "Competitors Stock"])
+tab1, tab2, tab3 = st.tabs(["Demands", "Partners", "Competitors"])
 
 with st.sidebar:
     create_sidebar()

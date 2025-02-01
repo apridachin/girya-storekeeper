@@ -1,14 +1,37 @@
 import streamlit as st
 
-from api import run_async, get_competitors_stock
+from api import run_async, get_competitors_stock, get_apple_product_groups
 
 
 def create_competitors_tab():
-    st.header("Current Stock")
+    st.header("Warehouse Apple Stock")
+    apple_product_groups = run_async(get_apple_product_groups(credentials=st.session_state.credentials))
     
+    if apple_product_groups:
+        selected_group = st.selectbox(
+            "Select Apple Product Group",
+            options=[group["name"] for group in apple_product_groups],
+            key="selected_apple_group"
+        )
+        st.session_state.selected_product_group_id = next(
+            (group["id"] for group in apple_product_groups if group["name"] == selected_group),
+            None
+        )
+                
+    st.divider()
+    st.header("Competitors Stock")
+    if apple_product_groups and selected_group:
+        st.write(f"Check competitors stock for {selected_group}")
+    else:
+        st.warning("Please select a group")
     if st.button("🔄 Refresh Competitors Stock"):
         with st.spinner("Fetching stock data..."):
-            stock_data = run_async(get_competitors_stock(credentials=st.session_state.credentials))
+            stock_data = run_async(
+                get_competitors_stock(
+                    credentials=st.session_state.credentials,
+                    product_group_id=st.session_state.selected_product_group_id
+                )
+            )
             if stock_data and "rows" in stock_data:
                 if stock_data["size"] > 0:
                     table_data = [

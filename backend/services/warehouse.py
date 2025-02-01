@@ -218,15 +218,3 @@ class WarehouseService:
 
         logger.debug("Product folders received", extra={"folder_count": len(result)})
         return result
-
-    async def get_apple_stock(self, store_id: str) -> list[WarehouseStockSearchResult]:
-        """Get Apple stock. Not parallelized because of aggressive rate limits"""
-        result = []
-        apple_product_group = await self.get_apple_product_groups()
-        for folder in apple_product_group:
-            stock = await self.search_stock(
-                store_id=store_id,
-                product_group_id=folder.id
-            )
-            result.append(stock)
-        return result

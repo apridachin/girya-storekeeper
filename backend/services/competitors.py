@@ -2,7 +2,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
-from playwright.async_api import async_playwright, Browser, BrowserContext
+from playwright.async_api import async_playwright, BrowserContext
 
 from backend.services.llm import LLMService, HTMLParsingException
 from backend.schemas import CompetitorsProduct
@@ -18,36 +18,33 @@ class CompetitorsService:
         self.base_url = base_url
         self.llm = llm
 
-        self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._playwright = None
 
     async def _ensure_browser(self):
-        """Ensure browser and context are initialized."""
-        if not self._browser:
+        """Ensure persistent browser context is initialized."""
+        if not self._context:
             try:
                 self._playwright = await async_playwright().start()
-                self._browser = await self._playwright.chromium.launch(
+                self._context = await self._playwright.chromium.launch_persistent_context(
+                    user_data_dir='/tmp/playwright_context',
                     headless=True,
+                    viewport={'width': 800, 'height': 600},
+                    java_script_enabled=True,
+                    ignore_https_errors=True,
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                     args=[
                         '--disable-gpu',
                         '--disable-dev-shm-usage',
                         '--disable-setuid-sandbox',
                         '--no-sandbox',
-                        '--single-process',
                         '--no-zygote',
                     ]
-                )
-                self._context = await self._browser.new_context(
-                    viewport={'width': 800, 'height': 600},
-                    java_script_enabled=True,
-                    ignore_https_errors=True,
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 )
             except Exception as e:
                 logger.error("Failed to initialize browser", extra={"error": str(e)})
                 await self._cleanup()
-                raise CompetitorsSearchException("Failed to initialize browser") from e
+                raise
 
     async def _cleanup(self):
         """Cleanup Playwright resources."""
@@ -55,9 +52,6 @@ class CompetitorsService:
             if self._context:
                 await self._context.close()
                 self._context = None
-            if self._browser:
-                await self._browser.close()
-                self._browser = None
             if self._playwright:
                 await self._playwright.stop()
                 self._playwright = None
@@ -92,36 +86,26 @@ class CompetitorsService:
                 await page.goto(search_url, wait_until='networkidle', timeout=60000)
                 
                 # Wait for the product grid to appear
-                await page.wait_for_selector(".digi-main__results", timeout=30000)
+                await page.wait_for_selector(".digi-main__results", timeout=60000)
                 
                 html = await page.content()
-                search_page_html = BeautifulSoup(html, 'html.parser').find('div', class_='digi-products')
-                search_page_product = await self.parse_product_html(item_name=query, html=str(search_page_html))
-                search_page_product.url = urljoin(self.base_url, search_page_product.url)
-                logger.info(
-                    "Product found on search page",
-                    extra={
-                            "product_name": search_page_product.name,
-                            "url": search_page_product.url,
-                            "price": search_page_product.price
-                        }
-                    )
-
-                # TODO: Check the product page because the price on the search page is not accurate
-                # product_page = await self._browser.new_page()
-                # product_url = urljoin(self.base_url, search_page_product.url)
-                # await product_page.goto(product_url)
-                # # await product_page.wait_for_load_state("networkidle")
-                # logger.debug("Navigated to page", extra={"url": product_url})
-                
-                # await product_page.wait_for_selector(".product", timeout=5000)
-                # product_page_content = await product_page.content()
-                # product_html = BeautifulSoup(product_page_content, 'html.parser')
-                # product_name = product_html.find('h1', class_='data-product-name').text.strip()
-                # product_price = product_html.find('span', class_='main-detail-price').text.strip()
-                # logger.debug("Product page detais", extra={"product_name": product_name, "url": product_url, "price": product_price})
+                search_results = BeautifulSoup(html, 'html.parser').find('div', class_='digi-products')
+                found_products = search_results.find_all('div', class_='digi-product')
+                for product in found_products:
+                    parsed_product = await self.parse_product_html(item_name=query, html=str(product))
+                    if parsed_product.name:
+                        parsed_product.url = urljoin(self.base_url, parsed_product.url)
+                        logger.info(
+                            "Product found on search page",
+                            extra={
+                                "product_name": parsed_product.name,
+                                "url": parsed_product.url,
+                                "price": parsed_product.price
+                            }
+                        )
+                        break
             
-                return search_page_product
+                return parsed_product
 
             finally:
                 await page.close()
@@ -141,7 +125,7 @@ class CompetitorsService:
                 instructions=(
                     "You are provided with a html of the products page.\n"
                     f"Find the product {item_name}. Product name might be slightly different.\n"
-                    "Return the name and the price of this product from the page.\n"
+                    "Return name, price and url of this product from the page.\n"
                     "Example input: Iphone 14 128 Purple\n"
                     "Example JSON output:\n"
                     """
@@ -149,6 +133,15 @@ class CompetitorsService:
                         "name": "Смартфон Apple iPhone 14 128GB, фиолетовый",
                         "price": "16000",
                         "url": "/iphone-16-128gb-fioletovyy/"
+                    }
+                    """
+                    "If product is not found, return empty string for name, price and url.\n"
+                    "Example JSON output for not found product:\n"
+                    """
+                    {
+                        "name": "",
+                        "price": "",
+                        "url": ""
                     }
                     """
                 ),

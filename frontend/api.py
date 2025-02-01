@@ -1,6 +1,5 @@
 import asyncio
 import os
-import time
 from typing import Optional, Dict
 
 import httpx
@@ -39,7 +38,7 @@ async def create_demand(credentials: Dict[str, str], file) -> Optional[Dict]:
     async with httpx.AsyncClient() as client:
         files = {"file": (file.name, file.getvalue(), "text/csv")}
         response = await client.post(
-            f"{API_BASE_URL}/demand",
+            f"{API_BASE_URL}/warehouse/demand",
             files=files,
             headers=headers,
             timeout=60*2,
@@ -63,7 +62,7 @@ async def get_partners_stock(credentials: Dict[str, str]) -> Optional[Dict]:
         response.raise_for_status()
         return response.json()
 
-async def get_competitors_stock(credentials: Dict[str, str]) -> Optional[Dict]:
+async def get_competitors_stock(credentials: Dict[str, str], product_group_id: int) -> Optional[Dict]:
     """Get current stock information"""
     headers = get_auth_headers(credentials)
     if not headers:
@@ -72,7 +71,23 @@ async def get_competitors_stock(credentials: Dict[str, str]) -> Optional[Dict]:
         
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/stock/competitors",
+            f"{API_BASE_URL}/stock/competitors?product_group_id={product_group_id}",
+            headers=headers,
+            timeout=60*20,
+        )
+        response.raise_for_status()
+        return response.json()
+
+async def get_apple_product_groups(credentials: Dict[str, str]) -> Optional[Dict]:
+    """Get Apple product groups from warehouse"""
+    headers = get_auth_headers(credentials)
+    if not headers:
+        st.error("Please provide login and password in the sidebar")
+        return None
+        
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{API_BASE_URL}/warehouse/groups/apple",
             headers=headers,
             timeout=60*5,
         )

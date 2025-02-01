@@ -4,7 +4,7 @@ from api import run_async, get_partners_stock
 
 
 def create_partners_tab():
-    st.header("Current Stock")
+    st.header("Partners Current Stock")
     
     if st.button("🔄 Refresh Partners Data"):
         with st.spinner("Fetching stock data..."):
