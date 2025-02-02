@@ -1,6 +1,7 @@
 import streamlit as st
+import time
 
-from api import run_async, get_competitors_stock, get_apple_product_groups
+from api import run_async, get_competitors_stock, get_apple_product_groups, get_competitors_search_status
 
 
 def create_competitors_tab():
@@ -24,39 +25,80 @@ def create_competitors_tab():
         st.write(f"Check competitors stock for {selected_group}")
     else:
         st.warning("Please select a group")
-    if st.button("🔄 Refresh Competitors Stock"):
-        with st.spinner("Fetching stock data..."):
-            stock_data = run_async(
-                get_competitors_stock(
-                    credentials=st.session_state.credentials,
-                    product_group_id=st.session_state.selected_product_group_id
-                )
+
+    # Initialize session state for task status
+    if 'competitors_task_running' not in st.session_state:
+        st.session_state.competitors_task_running = False
+        st.session_state.competitors_data = None
+
+    if st.button("🔄 Refresh Competitors Stock", disabled=st.session_state.competitors_task_running):
+        st.session_state.competitors_task_running = True
+        response = run_async(
+            get_competitors_stock(
+                credentials=st.session_state.credentials,
+                product_group_id=st.session_state.selected_product_group_id
             )
-            if stock_data and "rows" in stock_data:
-                if stock_data["size"] > 0:
-                    table_data = [
-                        {
-                            "Product": row.get("name", "Not Found"),
-                            "Warehouse Stock": row.get("stock", "-"),
-                            "Warehouse Price": f"{row.get('price', 0) / 100} RUB",
-                            "Competitor Product": row.get("found_name", "Not Found"),
-                            "Competitor Price": row.get("found_price", "Not Found"),
-                            "Competitor Link": row.get("found_url", "Not Found"),
-                        } for row in stock_data["rows"]
-                    ]
-                    st.markdown(f"Found {stock_data['size']} products")
-                    st.dataframe(
-                        data=table_data,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Competitor Link": st.column_config.LinkColumn(
-                                "Competitor Link",
-                                validate="^https?://.*",
-                            ),
-                        }
+        )
+        
+        if response and response.get("status") == "success":
+            st.session_state.task_id = response["task_id"]
+            st.session_state.competitors_data = None
+        else:
+            st.error("Failed to start competitors search")
+            st.session_state.competitors_task_running = False
+
+    if st.session_state.competitors_task_running:
+        with st.spinner("Searching competitors..."):
+            placeholder = st.empty()
+            while True:
+                status_response = run_async(
+                    get_competitors_search_status(
+                        credentials=st.session_state.credentials,
+                        task_id=st.session_state.task_id,
                     )
-                else:
-                    st.info("No stock data available")
-            else:
-                st.error("Failed to fetch stock data")
+                )
+                
+                if status_response:
+                    status = status_response.get("status")
+                    if status == "completed":
+                        st.session_state.competitors_task_running = False
+                        st.session_state.competitors_data = status_response.get("result")
+                        break
+                    elif status == "failed":
+                        placeholder.error(f"Search failed: {status_response.get('error', 'Unknown error')}")
+                        st.session_state.competitors_task_running = False
+                        break
+                    elif status == "not_found":
+                        placeholder.error("Search task not found")
+                        st.session_state.competitors_task_running = False
+                        break
+                    else:
+                        time.sleep(5)
+
+    # Display results if available
+    if st.session_state.competitors_data:
+        if st.session_state.competitors_data["size"] > 0:
+            table_data = [
+                {
+                    "Product": row.get("name", "Not Found"),
+                    "Warehouse Stock": row.get("stock", "-"),
+                    "Warehouse Price": f"{row.get('price', 0) / 100} RUB",
+                    "Competitor Product": row.get("found_name", "Not Found"),
+                    "Competitor Price": row.get("found_price", "Not Found"),
+                    "Competitor Link": row.get("found_url", "Not Found"),
+                } for row in st.session_state.competitors_data["rows"]
+            ]
+            st.markdown(f"Found {st.session_state.competitors_data['size']} products")
+            st.dataframe(
+                data=table_data,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Competitor Link": st.column_config.LinkColumn(
+                        "Competitor Link",
+                        validate="^https?://.*",
+                    ),
+                }
+            )
+        else:
+            st.info("No stock data available")

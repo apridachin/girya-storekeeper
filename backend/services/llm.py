@@ -1,6 +1,4 @@
 import json
-import asyncio
-import time
 from typing import Dict
 
 import litellm
@@ -16,7 +14,7 @@ class HTMLParsingException(Exception):
 
 
 class LLMService:
-    def __init__(self, base_url: str, api_key: str, provider: str, model: str):
+    def __init__(self, base_url: str | None, api_key: str, provider: str, model: str):
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         litellm.api_key = self.client.api_key
         litellm.api_base = self.client.base_url

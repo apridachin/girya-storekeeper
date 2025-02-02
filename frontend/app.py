@@ -1,7 +1,7 @@
 import streamlit as st
 
 from sidebar import create_sidebar
-from demand_tab import create_demand_tab
+from demands import create_demand_tab
 from partners import create_partners_tab
 from competitors import create_competitors_tab
 

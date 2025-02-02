@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -53,11 +55,17 @@ class StockSearchResult(BaseModel):
     size: int
     rows: list[StockSearchRow]
 
+# Partners
 class PartnersResponse(BaseModel):
     product_name: str = Field(..., description="Name of the product")
     url: str | None = Field(..., description="URL of the product")
 
+# Competitors
 class CompetitorsProduct(BaseModel):
     name: str = Field(..., description="Name of the product")
     price: str | None = Field(..., description="Price of the product")
     url: str | None = Field(..., description="URL of the product")
+
+class SearchCompetitors(BaseModel):
+    status: Literal["success", "error"] = Field(..., description="Status")
+    task_id: str = Field(..., description="Task ID")

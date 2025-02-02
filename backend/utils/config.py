@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     competitors_api_url: str = Field("COMPETITORS_API_URL", description="Competitors API URL")
 
     # LLMs
-    llm_base_url: str = Field("LLM_BASE_URL", description="LLM Provider API URL")
+    llm_base_url: str | None = Field(None, description="LLM Provider API URL")
     llm_api_key: str = Field("LLM_API_KEY", description="LLM Provider API key")
     llm_name: str = Field("LLM_NAME", description="LLM name")
     llm_provider: str = Field("LLM_PROVIDER", description="LLM provider")

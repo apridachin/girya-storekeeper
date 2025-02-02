@@ -73,7 +73,7 @@ async def get_competitors_stock(credentials: Dict[str, str], product_group_id: i
         response = await client.get(
             f"{API_BASE_URL}/stock/competitors?product_group_id={product_group_id}",
             headers=headers,
-            timeout=60*20,
+            timeout=30,
         )
         response.raise_for_status()
         return response.json()
@@ -90,6 +90,22 @@ async def get_apple_product_groups(credentials: Dict[str, str]) -> Optional[Dict
             f"{API_BASE_URL}/warehouse/groups/apple",
             headers=headers,
             timeout=60*5,
+        )
+        response.raise_for_status()
+        return response.json()
+
+async def get_competitors_search_status(credentials: Dict[str, str], task_id: str) -> Optional[Dict]:
+    """Check the status of a competitors search task"""
+    headers = get_auth_headers(credentials)
+    if not headers:
+        st.error("Please provide login and password in the sidebar")
+        return None
+        
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{API_BASE_URL}/tasks?task_id={task_id}",
+            headers=headers,
+            timeout=30,
         )
         response.raise_for_status()
         return response.json()

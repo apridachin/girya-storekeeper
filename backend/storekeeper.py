@@ -1,4 +1,5 @@
 from fastapi import UploadFile, HTTPException, Depends
+from datetime import datetime
 
 from backend.schemas import (
     CreateDemandResult,
@@ -15,6 +16,7 @@ from backend.services.warehouse import WarehouseService, WarehouseProductFolder
 from backend.utils.auth import login_header, password_header, get_warehouse_access_token
 from backend.utils.logger import logger
 from backend.utils.config import get_settings
+from backend.tasks import task_store, TaskStatus, Task
 
 
 class StoreKeeper:
@@ -164,42 +166,86 @@ class StoreKeeper:
     async def get_apple_product_groups(self) -> list[WarehouseProductFolder]:
         return await self.warehouse.get_apple_product_groups()
 
-    async def search_competitors_stock(self, product_group_id: int) -> StockSearchResult:
-        """Search for stock in Warehouse and get prices from Partners site"""
-        logger.info("Starting stock search")
-        stock = await self.warehouse.search_stock(
-            store_id=self.main_store_id,
-            product_group_id=product_group_id
+    async def search_competitors_stock(self, product_group_id: str) -> StockSearchResult:
+        """Search for stock in Warehouse and Competitors site"""
+        task_id = f"competitors_search_{product_group_id}"
+        task = Task(
+            id=task_id,
+            status=TaskStatus.RUNNING,
+            start_time=datetime.now(),
+            result=None,
+            error=None
         )
-        result = []
-        for item in stock.rows:
-            try:
+        task_store.set_task(task_id, task)
+
+        try:
+            warehouse_stock = await self.warehouse.search_stock(
+                store_id=self.main_store_id,
+                product_group_id=product_group_id
+            )
+            result = []
+
+            logger.info(
+                "Start processing stock items",
+                extra={
+                    "total_items": len(warehouse_stock.rows),
+                    "processing_items": len(warehouse_stock.rows)
+                }
+            )
+
+            for item in warehouse_stock.rows:
                 logger.debug("Searching for product", extra={"product_name": item.name})
-                product = await self.competitors.search(query=item.name)
-                result.append(
-                    StockSearchRow(
-                        name=item.name,
-                        stock=item.stock,
-                        price=item.price,
-                        found_name=product.name if product else None,
-                        found_price=product.price if product else None,
-                        found_url=product.url if product else None,
+                try:
+                    found_product = await self.competitors.search(item.name)
+                    result.append(
+                        StockSearchRow(
+                            name=item.name,
+                            stock=item.stock,
+                            price=item.price,
+                            found_name=found_product.name,
+                            found_price=found_product.price,
+                            found_url=found_product.url,
+                        )
                     )
-                )
-            except CompetitorsSearchException:
-                result.append(
-                    StockSearchRow(
-                        name=item.name,
-                        stock=item.stock,
-                        price=item.price,
-                        found_name=None,
-                        found_price=None,
-                        found_url=None,
+                except CompetitorsSearchException:
+                    result.append(
+                        StockSearchRow(
+                            name=item.name,
+                            stock=item.stock,
+                            price=item.price,
+                            found_name=None,
+                            found_price=None,
+                            found_url=None,
+                        )
                     )
-                )
             
-        logger.info("Competitors search completed", extra={"processed_items": len(result)})
-        return StockSearchResult(size=len(result), rows=result)
+            logger.info("Competitors search completed", extra={"processed_items": len(result)})
+            search_result = StockSearchResult(size=len(result), rows=result)
+            task = task_store.get_task(task_id)
+            task.status = TaskStatus.COMPLETED
+            task.result = search_result
+            task_store.set_task(task_id, task)
+            return search_result
+
+        except Exception as e:
+            logger.exception("Error during competitors search")
+            task = task_store.get_task(task_id)
+            task.status = TaskStatus.FAILED
+            task.error = str(e)
+            task_store.set_task(task_id, task)
+            raise
+
+    async def get_task_status(self, task_id: str) -> Task:
+        """Get the status of a competitors search task"""
+        task = task_store.get_task(task_id)
+
+        if not task:
+            return Task(
+                id="not_found",
+                status=TaskStatus.NOT_FOUND,
+            )
+
+        return task
 
 
 async def get_storekeeper(
