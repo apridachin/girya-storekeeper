@@ -1,10 +1,18 @@
 from fastapi import APIRouter, UploadFile, File, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse
 
-from backend.schemas import SearchCompetitors
+from backend.schemas import SearchCompetitors, LoginResponse
 from backend.storekeeper import StoreKeeper, get_storekeeper
+from backend.utils.auth import login_header, password_header, get_warehouse_access_token
 
 router = APIRouter()
+
+@router.post("/auth/login")
+async def login(
+    login: str = Depends(login_header),
+    password: str = Depends(password_header),
+):
+    access_token = await get_warehouse_access_token(login=login, password=password)
+    return LoginResponse(access_token=access_token)
 
 @router.post("/warehouse/demand")
 async def create_demand(

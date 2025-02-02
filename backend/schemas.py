@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+class LoginResponse(BaseModel):
+    access_token: str = Field(..., description="Access token")
 
 class CsvRow(BaseModel):
     idx: int = Field(None, description="Row index in the CSV file")

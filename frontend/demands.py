@@ -24,7 +24,7 @@ def create_demand_tab():
         if st.button("Create Demand", type="primary"):
             with st.spinner("Creating demand..."):
                 try:
-                    result = run_async(create_demand(credentials=st.session_state.credentials, file=uploaded_file))
+                    result = run_async(create_demand(file=uploaded_file))
                     if result and "demand" in result:
                         st.success(f"✅ Demand created successfully!")
                         table_data = [

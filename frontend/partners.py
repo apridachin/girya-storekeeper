@@ -8,7 +8,7 @@ def create_partners_tab():
     
     if st.button("🔄 Refresh Partners Data"):
         with st.spinner("Fetching stock data..."):
-            stock_data = run_async(get_partners_stock(credentials=st.session_state.credentials))
+            stock_data = run_async(get_partners_stock())
             if stock_data and "rows" in stock_data:
                 if stock_data["size"] > 0:
                     table_data = [

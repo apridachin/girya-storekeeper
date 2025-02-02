@@ -15,10 +15,11 @@ class TaskStatus(Enum):
 
 class Task(BaseModel):
     id: str
+    owner: str
     status: TaskStatus
-    start_time: datetime | None
-    result: dict | None
-    error: str | None
+    start_time: datetime | None = None
+    result: dict | None = None
+    error: str | None = None
 
 
 class TaskStore:
@@ -33,8 +34,16 @@ class TaskStore:
     def set_task(self, task_id: str, task_data: Task):
         self._tasks[task_id] = task_data
 
-    def get_task(self, task_id: str) -> Task:
-        return self._tasks.get(task_id)
+    def get_task(self, task_id: str, owner: str) -> Optional[Task]:
+        task: Task | None = self._tasks.get(task_id)
+        if task and task.owner == owner:
+            return task
+        return None
+
+    def remove_task(self, task_id: str, owner: str) -> None:
+        task: Task | None = self._tasks.get(task_id)
+        if task and task.owner == owner:
+            del self._tasks[task_id]
 
 
 task_store = TaskStore()

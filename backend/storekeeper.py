@@ -13,7 +13,7 @@ from backend.services.competitors import CompetitorsSearchException, Competitors
 from backend.services.llm import LLMService
 from backend.services.partners import PartnersService
 from backend.services.warehouse import WarehouseService, WarehouseProductFolder
-from backend.utils.auth import login_header, password_header, get_warehouse_access_token
+from backend.utils.auth import auth_header
 from backend.utils.logger import logger
 from backend.utils.config import get_settings
 from backend.tasks import task_store, TaskStatus, Task
@@ -23,6 +23,7 @@ class StoreKeeper:
     def __init__(self, access_token: str):
         """Initialize StoreKeeper with required services"""
         settings = get_settings()
+        self.owner = access_token
 
         # Services
         self.warehouse = WarehouseService(api_url=settings.warehouse_api_url, access_token=access_token)
@@ -171,12 +172,13 @@ class StoreKeeper:
         task_id = f"competitors_search_{product_group_id}"
         task = Task(
             id=task_id,
+            owner=self.owner,
             status=TaskStatus.RUNNING,
             start_time=datetime.now(),
             result=None,
             error=None
         )
-        task_store.set_task(task_id, task)
+        task_store.set_task(task_id=task_id, task_data=task)
 
         try:
             warehouse_stock = await self.warehouse.search_stock(
@@ -221,7 +223,7 @@ class StoreKeeper:
             
             logger.info("Competitors search completed", extra={"processed_items": len(result)})
             search_result = StockSearchResult(size=len(result), rows=result)
-            task = task_store.get_task(task_id)
+            task = task_store.get_task(task_id, self.owner)
             task.status = TaskStatus.COMPLETED
             task.result = search_result
             task_store.set_task(task_id, task)
@@ -229,7 +231,7 @@ class StoreKeeper:
 
         except Exception as e:
             logger.exception("Error during competitors search")
-            task = task_store.get_task(task_id)
+            task = task_store.get_task(task_id, self.owner)
             task.status = TaskStatus.FAILED
             task.error = str(e)
             task_store.set_task(task_id, task)
@@ -237,21 +239,23 @@ class StoreKeeper:
 
     async def get_task_status(self, task_id: str) -> Task:
         """Get the status of a competitors search task"""
-        task = task_store.get_task(task_id)
+        task = task_store.get_task(task_id, self.owner)
 
         if not task:
             return Task(
                 id="not_found",
+                owner=self.owner,
                 status=TaskStatus.NOT_FOUND,
             )
 
+        if task.status == TaskStatus.FAILED or task.status == TaskStatus.COMPLETED:
+            task_store.remove_task(task_id, self.owner)
+        
         return task
 
 
 async def get_storekeeper(
-    login: str = Depends(login_header),
-    password: str = Depends(password_header),
+    access_token: str = Depends(auth_header),
 ) -> StoreKeeper:
     """Dependency to get StoreKeeper instance"""
-    access_token = await get_warehouse_access_token(login=login, password=password)
     return StoreKeeper(access_token=access_token)

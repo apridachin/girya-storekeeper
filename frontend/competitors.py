@@ -6,7 +6,7 @@ from api import run_async, get_competitors_stock, get_apple_product_groups, get_
 
 def create_competitors_tab():
     st.header("Warehouse Apple Stock")
-    apple_product_groups = run_async(get_apple_product_groups(credentials=st.session_state.credentials))
+    apple_product_groups = run_async(get_apple_product_groups())
     
     if apple_product_groups:
         selected_group = st.selectbox(
@@ -33,12 +33,7 @@ def create_competitors_tab():
 
     if st.button("🔄 Refresh Competitors Stock", disabled=st.session_state.competitors_task_running):
         st.session_state.competitors_task_running = True
-        response = run_async(
-            get_competitors_stock(
-                credentials=st.session_state.credentials,
-                product_group_id=st.session_state.selected_product_group_id
-            )
-        )
+        response = run_async(get_competitors_stock(product_group_id=st.session_state.selected_product_group_id))
         
         if response and response.get("status") == "success":
             st.session_state.task_id = response["task_id"]
@@ -51,12 +46,7 @@ def create_competitors_tab():
         with st.spinner("Searching competitors..."):
             placeholder = st.empty()
             while True:
-                status_response = run_async(
-                    get_competitors_search_status(
-                        credentials=st.session_state.credentials,
-                        task_id=st.session_state.task_id,
-                    )
-                )
+                status_response = run_async(get_competitors_search_status(task_id=st.session_state.task_id))
                 
                 if status_response:
                     status = status_response.get("status")

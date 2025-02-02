@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 import httpx
 from fastapi import HTTPException
 from fastapi.security import APIKeyHeader
+from starlette.requests import Request
 
 from backend.utils.config import get_settings
 from backend.utils.logger import logger
@@ -11,6 +12,7 @@ from backend.utils.logger import logger
 
 login_header = APIKeyHeader(name="X-Warehouse-Login", scheme_name="Warehouse-Login")
 password_header = APIKeyHeader(name="X-Warehouse-Password", scheme_name="Warehouse-Password")
+auth_header = APIKeyHeader(name="Authorization", scheme_name="Bearer")
 
 
 async def get_warehouse_access_token(login: str, password: str) -> str:
