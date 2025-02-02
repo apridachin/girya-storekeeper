@@ -164,8 +164,8 @@ class StoreKeeper:
         logger.info("Partners search completed", extra={"processed_items": len(result)})
         return StockSearchResult(size=len(result), rows=result)
 
-    async def get_apple_product_groups(self) -> list[WarehouseProductFolder]:
-        return await self.warehouse.get_apple_product_groups()
+    async def get_product_groups(self) -> list[WarehouseProductFolder]:
+        return await self.warehouse.get_product_groups()
 
     async def search_competitors_stock(self, product_group_id: str) -> StockSearchResult:
         """Search for stock in Warehouse and Competitors site"""

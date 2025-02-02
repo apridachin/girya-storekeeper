@@ -69,11 +69,11 @@ async def get_competitors_stock(product_group_id: int) -> Optional[Dict]:
         response.raise_for_status()
         return response.json()
 
-async def get_apple_product_groups() -> Optional[Dict]:
+async def get_product_groups() -> Optional[Dict]:
     """Get Apple product groups from warehouse"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/warehouse/groups/apple",
+            f"{API_BASE_URL}/warehouse/groups",
             headers=get_auth_headers()
         )
         response.raise_for_status()

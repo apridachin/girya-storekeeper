@@ -198,7 +198,7 @@ class WarehouseService:
         logger.debug("Stock search completed", extra={"total_items": result.size})
         return result
 
-    async def get_apple_product_groups(self) -> list[WarehouseProductFolder]:
+    async def get_product_groups(self) -> list[WarehouseProductFolder]:
         """Get a list of apple product folders in Warehouse"""
         logger.debug("Getting apple product folders")
         
@@ -213,7 +213,6 @@ class WarehouseService:
                 name=row.get("name"),
                 archived=row.get("archived"),
             ) for row in response.get("rows", [])
-            if any(keyword in row.get("name", "").lower() for keyword in ["apple", "iphone"])
         ]
 
         logger.debug("Product folders received", extra={"folder_count": len(result)})

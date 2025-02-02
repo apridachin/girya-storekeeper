@@ -1,27 +1,27 @@
 import streamlit as st
 import time
 
-from api import run_async, get_competitors_stock, get_apple_product_groups, get_competitors_search_status
+from api import run_async, get_competitors_stock, get_product_groups, get_competitors_search_status
 
 
 def create_competitors_tab():
-    st.header("Warehouse Apple Stock")
-    apple_product_groups = run_async(get_apple_product_groups())
+    st.header("Warehouse Product Groups")
+    product_groups = run_async(get_product_groups())
     
-    if apple_product_groups:
+    if product_groups:
         selected_group = st.selectbox(
-            "Select Apple Product Group",
-            options=[group["name"] for group in apple_product_groups],
-            key="selected_apple_group"
+            "Select a Product Group",
+            options=[group["name"] for group in product_groups],
+            key="selected_product_group"
         )
         st.session_state.selected_product_group_id = next(
-            (group["id"] for group in apple_product_groups if group["name"] == selected_group),
+            (group["id"] for group in product_groups if group["name"] == selected_group),
             None
         )
                 
     st.divider()
     st.header("Competitors Stock")
-    if apple_product_groups and selected_group:
+    if product_groups and selected_group:
         st.write(f"Check competitors stock for {selected_group}")
     else:
         st.warning("Please select a group")

@@ -22,12 +22,12 @@ async def create_demand(
     """Create a demand in Warehouse based on CSV file data"""
     return await storekeeper.create_demand(file)
 
-@router.get("/warehouse/groups/apple")
-async def get_apple_product_groups(
+@router.get("/warehouse/groups")
+async def get_product_groups(
     storekeeper: StoreKeeper = Depends(get_storekeeper)
 ):
-    """Get Apple product groups"""
-    return await storekeeper.get_apple_product_groups()
+    """Get warehouse product groups"""
+    return await storekeeper.get_product_groups()
 
 @router.get("/stock/partners")
 async def search_partners_stock(
