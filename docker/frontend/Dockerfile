@@ -1,23 +1,38 @@
-FROM python:3.12-slim
+# Stage 1: Build stage
+FROM python:3.12-slim as builder
 
-WORKDIR /frontend
+WORKDIR /app
 
-# Install curl for healthcheck with minimal packages
+# Install curl for healthcheck and any other build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements/frontend.txt requirements.txt
 
-RUN pip install --no-cache-dir \
-    --disable-pip-version-check \
-    -r requirements.txt && \
+# Install Python dependencies
+RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt && \
     rm -rf /root/.cache/pip/*
 
-# Copy only necessary files
-COPY frontend/ /frontend
+# Copy frontend source code
+COPY frontend/ /app/frontend
 
-# Set environment variables for optimization
+# Stage 2: Runtime stage
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install only runtime minimal system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy installed python packages, executables and frontend source from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app/frontend /app/frontend
+
+# Set environment variables for optimization and streamlit configurations
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONOPTIMIZE=2 \
@@ -26,6 +41,8 @@ ENV PYTHONUNBUFFERED=1 \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
     STREAMLIT_SERVER_PORT=8501 \
     STREAMLIT_SERVER_HEADLESS=true
+
+WORKDIR /app/frontend
 
 EXPOSE 8501
 

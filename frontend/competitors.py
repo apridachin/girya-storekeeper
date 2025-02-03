@@ -63,7 +63,7 @@ def create_competitors_tab():
                         st.session_state.competitors_task_running = False
                         break
                     else:
-                        time.sleep(5)
+                        time.sleep(10)
 
     # Display results if available
     if st.session_state.competitors_data:

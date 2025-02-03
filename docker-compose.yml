@@ -13,9 +13,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64M
-        reservations:
           memory: 32M
+        reservations:
+          memory: 16M
 
   frontend:
     build:
@@ -51,9 +51,9 @@ services:
       resources:
         limits:
           cpus: '0.7'
-          memory: 384M
+          memory: 512M
         reservations:
-          cpus: '0.3'
+          cpus: '0.5'
           memory: 256M
     ulimits:
       nofile:
