@@ -4,7 +4,6 @@ from urllib.parse import urljoin
 import httpx
 from fastapi import HTTPException
 from fastapi.security import APIKeyHeader
-from starlette.requests import Request
 
 from backend.utils.config import get_settings
 from backend.utils.logger import logger

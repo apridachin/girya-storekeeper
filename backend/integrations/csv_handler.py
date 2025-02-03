@@ -4,12 +4,19 @@ from typing import List
 import os
 
 from fastapi import UploadFile, HTTPException
+from pydantic import BaseModel, Field
 
 from backend.utils.logger import logger
-from backend.schemas import CsvRow
 
 
-class CSVService:
+class CsvRow(BaseModel):
+    idx: int = Field(None, description="Row index in the CSV file")
+    serial_number: str = Field(..., description="Serial number of the item")
+    product_name: str = Field(..., description="Name of the item")
+    purchase_price: int | None = Field(None, description="Price of the item in cents")
+
+
+class CSVHandler:
     def __init__(self, upload_folder: str):
         self.upload_folder = Path(upload_folder)
         self.upload_folder.mkdir(exist_ok=True)
@@ -101,4 +108,3 @@ class CSVService:
         
         except (ValueError, TypeError):
             return None
-

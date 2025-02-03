@@ -13,7 +13,7 @@ class HTMLParsingException(Exception):
     pass
 
 
-class LLMService:
+class LLMClient:
     def __init__(self, base_url: str | None, api_key: str, provider: str, model: str):
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         litellm.api_key = self.client.api_key

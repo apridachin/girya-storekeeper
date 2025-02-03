@@ -3,12 +3,17 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 import httpx
 from fastapi import HTTPException
+from pydantic import BaseModel, Field
 
-from backend.schemas import PartnersResponse
 from backend.utils.logger import logger
 
 
-class PartnersService:
+class PartnersResponse(BaseModel):
+    product_name: str = Field(..., description="Name of the product")
+    url: str | None = Field(..., description="URL of the product")
+
+
+class PartnersClient:
     def __init__(self, base_url: str):
         self.base_url = base_url
 

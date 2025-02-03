@@ -1,20 +1,30 @@
+from typing import Literal
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
 from playwright.async_api import async_playwright, BrowserContext
+from pydantic import BaseModel, Field
 
-from backend.services.llm import LLMService, HTMLParsingException
-from backend.schemas import CompetitorsProduct
+from backend.integrations.llm import LLMClient, HTMLParsingException
 from backend.utils.logger import logger
 
 
 class CompetitorsSearchException(Exception):
     pass
 
+class CompetitorsProduct(BaseModel):
+    name: str = Field(..., description="Name of the product")
+    price: str | None = Field(..., description="Price of the product")
+    url: str | None = Field(..., description="URL of the product")
 
-class CompetitorsService:
-    def __init__(self, base_url: str, llm: LLMService):
+class SearchCompetitors(BaseModel):
+    status: Literal["success", "error"] = Field(..., description="Status")
+    task_id: str = Field(..., description="Task ID")
+
+
+class CompetitorsClient:
+    def __init__(self, base_url: str, llm: LLMClient):
         self.base_url = base_url
         self.llm = llm
 

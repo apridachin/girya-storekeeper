@@ -4,15 +4,46 @@ from urllib.parse import urljoin
 
 import httpx
 from fastapi import HTTPException
+from pydantic import BaseModel, Field
 
-from backend.schemas import (
-    WarehouseProduct, WarehouseDemand, WarehouseSearchProducts,
-    WarehouseStockItem, WarehouseStockSearchResult, WarehouseProductFolder
-)
 from backend.utils.logger import logger
 
 
-class WarehouseService:
+class WarehouseProduct(BaseModel):
+    id: str = Field(None, description="ID of the product")
+    name: str = Field(..., description="Name of the product")
+    things: list[str] = Field(None, description="Serial numbers in Warehouse")
+    purchase_price: int = Field(None, description="Price of the product in cents")
+
+
+class WarehouseSearchProducts(BaseModel):
+    products: list[WarehouseProduct] = Field(..., description="List of found products")
+    not_found: list[str] = Field(..., description="List of not found products")
+
+
+class WarehouseDemand(BaseModel):
+    id: str = Field(..., description="ID of the created demand")
+    products: list[WarehouseProduct] = Field(..., description="List of products in the created demand")
+
+
+class WarehouseStockItem(BaseModel):
+    name: str = Field(..., description="Name of the product")
+    stock: float = Field(None, description="Stock of the product")
+    price: float = Field(None, description="Price of the product")
+
+
+class WarehouseStockSearchResult(BaseModel):
+    size: int = Field(..., description="Size of the stock search result")
+    rows: list[WarehouseStockItem] = Field(..., description="List of products in the stock search result")
+
+
+class WarehouseProductFolder(BaseModel):
+    id: str = Field(..., description="ID of the product folder")
+    name: str = Field(..., description="Name of the product folder")
+    archived: bool = Field(..., description="Whether the product folder is archived")
+
+
+class WarehouseClient:
     def __init__(self, api_url: str, access_token: str):
         self.base_url = api_url
         self.access_token = access_token

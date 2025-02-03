@@ -40,7 +40,7 @@ async def create_demand(file) -> Optional[Dict]:
     async with httpx.AsyncClient() as client:
         files = {"file": (file.name, file.getvalue(), "text/csv")}
         response = await client.post(
-            f"{API_BASE_URL}/warehouse/demand",
+            f"{API_BASE_URL}/demands/create",
             files=files,
             headers=get_auth_headers(),
             timeout=60*2,
@@ -52,7 +52,7 @@ async def get_partners_stock() -> Optional[Dict]:
     """Get current stock information"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/stock/partners",
+            f"{API_BASE_URL}/partners/stock",
             headers=get_auth_headers(),
             timeout=60*5,
         )
@@ -63,7 +63,7 @@ async def get_competitors_stock(product_group_id: int) -> Optional[Dict]:
     """Get current stock information"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/stock/competitors?product_group_id={product_group_id}",
+            f"{API_BASE_URL}/competitors/stock?product_group_id={product_group_id}",
             headers=get_auth_headers(),
         )
         response.raise_for_status()
@@ -73,7 +73,7 @@ async def get_product_groups() -> Optional[Dict]:
     """Get Apple product groups from warehouse"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/warehouse/groups",
+            f"{API_BASE_URL}/competitors/groups",
             headers=get_auth_headers()
         )
         response.raise_for_status()
@@ -83,7 +83,7 @@ async def get_competitors_search_status(task_id: str) -> Optional[Dict]:
     """Check the status of a competitors search task"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_BASE_URL}/tasks?task_id={task_id}",
+            f"{API_BASE_URL}/competitors/tasks?task_id={task_id}",
             headers=get_auth_headers()
         )
         response.raise_for_status()
